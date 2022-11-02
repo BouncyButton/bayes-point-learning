@@ -7,7 +7,7 @@ An example plot of :class:`skltemplate.template.TemplateTransformer`
 """
 import numpy as np
 from matplotlib import pyplot as plt
-from skltemplate import TemplateTransformer
+from bpllib import TemplateTransformer
 
 X = np.arange(50, dtype=np.float).reshape(-1, 1)
 X /= 50

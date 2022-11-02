@@ -1,4 +1,4 @@
-name: project-template
+name: bayes-point-learning
 dependencies:
   - numpy
   - scipy
