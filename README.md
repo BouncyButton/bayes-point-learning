@@ -1,4 +1,6 @@
-# Bayes point learning
+# Bayes point Rule set learning
+
+![coverage](bpllib\coverage.svg)
 
 This repository contains a scikit-learn compatible implementation of the Bayes point learning algorithm described in the
 paper [Bayes Point Rule Set Learning](https://arxiv.org/abs/2204.05251). The algorithm is implemented in

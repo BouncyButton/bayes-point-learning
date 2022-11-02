@@ -221,7 +221,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
 
     # used to specify to estimator_checks that we accept strings and should not fail, see #11401 of scikit-learn docs
     def _more_tags(self):
-        return {'X_types': ['2darray', 'string']}
+        return {'X_types': ['2darray', 'string'], 'requires_y': True}
 
     def fit(self, X, y, target_class=None, pool_size=1):
         """A reference implementation of a fitting function for a classifier.
@@ -404,6 +404,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
     @staticmethod
     def find_rs_with_multiple_runs(X, y, target_class, tol=0, pool_size=1, T=1):
         if pool_size > 1:
+            # TODO why doesn't it work?
             with Pool(pool_size) as p:
                 outputs = p.map(partial(BplClassifier._find_rs_iteration, X, y, target_class, tol=tol), range(T))
         else:
