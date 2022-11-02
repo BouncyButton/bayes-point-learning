@@ -12,7 +12,7 @@ To install the package, run
 
 ## Usage
 
-The `BPLClassifier` class is a scikit-learn compatible classifier. It can be used in the same way as any other classifier.
+The `BplClassifier` class is a scikit-learn compatible classifier. It can be used in the same way as any other classifier.
 For example, to train a BPL classifier on the iris dataset, run
 
     from sklearn.datasets import load_iris
