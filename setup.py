@@ -21,7 +21,7 @@ URL = 'https://github.com/scikit-learn-contrib/project-template'
 LICENSE = 'new BSD'
 DOWNLOAD_URL = 'https://github.com/BouncyButton/bayes-point-learning'
 VERSION = __version__
-INSTALL_REQUIRES = ['numpy', 'scipy', 'scikit-learn']
+INSTALL_REQUIRES = ['numpy', 'scipy', 'scikit-learn', 'pandas']
 CLASSIFIERS = ['Intended Audience :: Science/Research',
                'Intended Audience :: Developers',
                'License :: OSI Approved',
