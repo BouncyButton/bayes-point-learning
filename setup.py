@@ -13,8 +13,8 @@ with open(ver_file) as f:
 
 DISTNAME = 'bayes-point-learning'
 DESCRIPTION = 'A template for scikit-learn compatible packages.'
-with codecs.open('README.rst', encoding='utf-8-sig') as f:
-    LONG_DESCRIPTION = f.read()
+# with codecs.open('README.rst', encoding='utf-8-sig') as f:
+#    LONG_DESCRIPTION = f.read()
 MAINTAINER = 'L. Bergamin'
 MAINTAINER_EMAIL = 'todo'
 URL = 'https://github.com/scikit-learn-contrib/project-template'
@@ -56,7 +56,7 @@ setup(name=DISTNAME,
       url=URL,
       version=VERSION,
       download_url=DOWNLOAD_URL,
-      long_description=LONG_DESCRIPTION,
+      # long_description=LONG_DESCRIPTION,
       zip_safe=False,  # the package can run out of an .egg file
       classifiers=CLASSIFIERS,
       packages=find_packages(),

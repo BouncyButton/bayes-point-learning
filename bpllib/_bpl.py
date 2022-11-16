@@ -150,6 +150,27 @@ class Constraint:
         raise NotImplementedError()
 
 
+class AgainstDiscreteConstraint(Constraint):
+    '''
+    A constraint which is satisfied if the value of the i-th feature is different from the specified value.
+    '''
+
+    def __init__(self, value, index):
+        super().__init__(index)
+        self.value = value
+
+    def __repr__(self):
+        return f'X[{self.index}]!={self.value}'
+
+    def satisfied(self, x):
+        return x[self.index] != self.value
+
+    def generalize(self, x):
+        if self.value != x[self.index]:
+            return self
+        return None
+
+
 class DiscreteConstraint(Constraint):
     '''
     A discrete constraint contains a value, that needs to be checked for equality in a constraint check.
@@ -324,7 +345,6 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
     def callable_rules_bp(Ds):
         # NO ! return [lambda x: sum([rule.covers(x) for rule in D]) for D in Ds]
         return lambda x: sum([rule.covers(x) for D in Ds for rule in D])
-
 
     @staticmethod
     def find_rs(X, y, target_class, tol=0, optimization=None):
