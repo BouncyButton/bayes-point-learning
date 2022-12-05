@@ -3,11 +3,11 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 
-from bpllib import get_dataset, BplClassifier
+from bpllib import get_dataset, BplClassifierV5
 
 test_datasets = [ #'CAR',
-    'TTT',
-    # 'CONNECT-4',
+    # 'TTT',
+    'CONNECT-4',
     # 'MUSH',
     #'MONKS1',
     #'MONKS2',
@@ -33,7 +33,7 @@ def template_estimator(data, strategy='bp'):
                 tol = 1
             else:
                 tol = 0
-            est = BplClassifier(T=100, strategy=strategy, tol=tol)
+            est = BplClassifierV5(T=3, strategy=strategy, tol=tol)
 
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=i)
             est.fit(X_train, y_train, pool_size=1)

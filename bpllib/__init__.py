@@ -2,6 +2,9 @@ from ._template import TemplateEstimator
 from ._template import TemplateClassifier
 from ._template import TemplateTransformer
 from ._bpl import BplClassifier
+# import pyximport; pyximport.install()
+# from ._bpl_v2 import BplClassifierV2
+from ._bpl_v5 import BplClassifierV5
 from ._aq import AqClassifier
 from ._definitions import ROOT_DIR
 from ._dataset import get_dataset
@@ -11,5 +14,7 @@ __all__ = ['TemplateEstimator', 'TemplateClassifier', 'TemplateTransformer',
            'BplClassifier',
            'AqClassifier',
            'get_dataset',
+           # 'BplClassifierV2',
+           'BplClassifierV5',
            'ROOT_DIR',
            '__version__']
