@@ -21,6 +21,9 @@ class Rule:
     def __init__(self, constraints):
         # TODO maybe i should include the whole dataset to remove constraints like [min(X[:,0]), max(X[:,0])]
         self.constraints = set(constraints)
+    #
+    # def __eq__(self, other):
+    #     return self.constraints == other.constraints
 
     def generalize(self, x: np.array):
         '''
@@ -40,6 +43,12 @@ class Rule:
             if new_constraint is not None:
                 new_constraints.append(new_constraint)
         return Rule(new_constraints)
+
+    def generalize_rule(self, r):
+        inter = set.intersection(self.constraints, r.constraints)
+        if inter is None:
+            return None
+        return Rule(inter)
 
     def covers(self, x: np.array):
         '''
@@ -116,6 +125,9 @@ class Constraint:
 
     def __repr__(self):
         raise NotImplementedError
+    #
+    # def __eq__(self, other):
+    #     return self.index == other.index
 
     def satisfied(self, x):
         '''
@@ -173,6 +185,12 @@ class DiscreteConstraint(Constraint):
     def __init__(self, value=None, index=None):
         self.value = value
         super().__init__(index=index)
+    #
+    # def __eq__(self, other):
+    #     return super.__eq__(self, other) and self.value == other.value
+    #
+    # def __hash__(self):
+    #     return hash(self.value, self.index)
 
     def satisfied(self, x):
         return x[self.index] == self.value
@@ -208,7 +226,7 @@ class OrdinalConstraint(Constraint):
                                  index=self.index)
 
 
-class BplClassifier(ClassifierMixin, BaseEstimator):
+class BplClassifierSplit(ClassifierMixin, BaseEstimator):
     """ A classifier which implements Find-RS...
 
     For more information regarding how to build your own classifier, read more
@@ -268,20 +286,20 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
 
         if len(self.classes_) == 1:
             self.target_class_ = target_class
-            self.D_, self.B_ = BplClassifier.find_rs(X, y, target_class)
+            self.D_, self.B_ = BplClassifierSplit.find_rs(X, y, target_class)
 
         if len(self.classes_) == 2:
             self.target_class_ = target_class
             self.other_class_ = (set(self.classes_) - {self.target_class_}).pop() if len(self.classes_) > 1 else None
 
             if self.T == 1:
-                self.D_, self.B_ = BplClassifier.find_rs(X, y, target_class)
+                self.D_, self.B_ = BplClassifierSplit.find_rs(X, y, target_class)
             else:
-                outputs = BplClassifier.find_rs_with_multiple_runs(X, y, target_class, T=self.T, pool_size=pool_size)
+                outputs = BplClassifierSplit.find_rs_with_multiple_runs(X, y, target_class, T=self.T, pool_size=pool_size)
                 self.Ds_ = [D for D, B in outputs]
 
         else:
-            self.ovr_ = OneVsRestClassifier(BplClassifier(tol=self.tol, T=self.T)).fit(X, y)
+            self.ovr_ = OneVsRestClassifier(BplClassifierSplit(tol=self.tol, T=self.T)).fit(X, y)
 
         # Return the classifier
         return self
@@ -322,12 +340,12 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
                  X])
 
         if len(self.classes_) == 2 and self.strategy == 'bo':
-            rules_bo = BplClassifier.callable_rules_bo(self.Ds_)
+            rules_bo = BplClassifierSplit.callable_rules_bo(self.Ds_)
             values = [sum([ht(x) for ht in rules_bo]) for x in X]
             return np.array([self.target_class_ if np.sign(v) > 0 else self.other_class_ for v in values])
 
         if len(self.classes_) == 2 and self.strategy == 'bp':
-            h_bp = BplClassifier.callable_rules_bp(self.Ds_)
+            h_bp = BplClassifierSplit.callable_rules_bp(self.Ds_)
             values = [h_bp(x) for x in X]
             return np.array([self.target_class_ if v > self.T / 2 else self.other_class_ for v in values])
 
@@ -342,37 +360,71 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
 
     @staticmethod
     def find_rs(X, y, target_class, tol=0, optimization=None):
-        train_p = list(X[y == target_class])
-        train_n = list(X[y != target_class])
+        all_train_p = X[y == target_class]
+        train_n = X[y != target_class]
 
-        D, B, k = [], [], 0
+        train_ps = np.array_split(all_train_p, np.sqrt(len(all_train_p)))
 
-        while len(train_p) > 0:
+        Ds, Bs = [], []
+        for train_p in train_ps:
+            D, B, k = [], [], 0
 
-            first = train_p.pop(0)
+            while len(train_p) > 0:
+
+                first, train_p = train_p[0], train_p[1:]
+                B.append([first])
+                D.append(RuleByExample(first))
+
+                incompatibles = []
+                for p in train_p:
+                    r = D[-1]
+
+                    new_r = r.generalize(p)
+                    negative_covered = new_r.covers_any(train_n, tol=tol)
+                    if not negative_covered:
+                        D[-1] = new_r  # RuleByExample(p) ??
+                        B[-1].append(p)
+                    else:
+                        incompatibles.append(p)  # occhio all'ordine!
+
+                        if optimization:
+                            # todo extend to >1 not_covered
+                            train_n = np.insert(train_n, 0, train_n[negative_covered[0]], axis=0)
+                            train_n = np.delete(train_n, negative_covered[0] + 1, axis=0)
+
+                train_p = incompatibles
+            D, B = BplClassifierSplit._prune(D, B)
+            Ds.append(D)
+            Bs.append(B)
+            # return D, B
+
+        allD = [r for xxx in Ds for r in xxx]
+        B, D = [], []
+        while len(allD) > 0:
+            first = allD.pop(0)
             B.append([first])
-            D.append(RuleByExample(first))
+            D.append(first)
 
             incompatibles = []
-            while len(train_p) > 0:
+            for p in allD:
                 r = D[-1]
-                p = train_p.pop(0)
 
-                new_r = r.generalize(p)
-                not_covered = new_r.covers_any(train_n, tol=tol)
-                if not not_covered:
-                    D[-1] = new_r  # RuleByExample(p) ??
-                    B[-1].append(p)
-                else:
-                    incompatibles.append(p)  # occhio all'ordine!
+                new_r = r.generalize_rule(p)
+                if new_r is not None:
+                    negative_covered = new_r.covers_any(train_n, tol=tol)
+                    if not negative_covered:
+                        D[-1] = new_r  # RuleByExample(p) ??
+                        B[-1].append(p)
+                    else:
+                        incompatibles.append(p)  # occhio all'ordine!
 
-                    if optimization:
-                        # todo extend to >1 not_covered
-                        train_n = np.insert(train_n, 0, train_n[not_covered[0]], axis=0)
-                        train_n = np.delete(train_n, not_covered[0] + 1, axis=0)
+                        if optimization:
+                            # todo extend to >1 not_covered
+                            train_n = np.insert(train_n, 0, train_n[negative_covered[0]], axis=0)
+                            train_n = np.delete(train_n, negative_covered[0] + 1, axis=0)
 
-            train_p = incompatibles
-        D, B = BplClassifier._prune(D, B)
+            allD = incompatibles
+        D, B = BplClassifierSplit._prune(D, B)
         return D, B
 
     @staticmethod
@@ -411,7 +463,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         X_perm = X[random_indexes].copy()
         y_perm = y[random_indexes].copy()
 
-        Dt, Bt = BplClassifier.find_rs(X_perm, y_perm, target_class, tol=tol)
+        Dt, Bt = BplClassifierSplit.find_rs(X_perm, y_perm, target_class, tol=tol)
 
         return Dt, Bt
 
@@ -420,9 +472,9 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         if pool_size > 1:
             # TODO why doesn't it work?
             with Pool(pool_size) as p:
-                outputs = p.map(partial(BplClassifier._find_rs_iteration, X, y, target_class, tol=tol), range(T))
+                outputs = p.map(partial(BplClassifierSplit._find_rs_iteration, X, y, target_class, tol=tol), range(T))
         else:
-            outputs = [BplClassifier._find_rs_iteration(X, y, target_class, t, tol=tol) for t in range(T)]
+            outputs = [BplClassifierSplit._find_rs_iteration(X, y, target_class, t, tol=tol) for t in range(T)]
         return outputs
 
     def predict_proba(self, X):

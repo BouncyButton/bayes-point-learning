@@ -1,13 +1,15 @@
 """
 This is a module to be used as a reference for building other modules
 """
+import time
 from functools import partial
 from multiprocessing import Pool
 
 import numpy as np
-import tqdm
+import tqdm as tqdm
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.multiclass import OneVsRestClassifier
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 from sklearn.utils.multiclass import unique_labels
 
@@ -34,11 +36,16 @@ class Rule:
         -------
 
         '''
+
+        # TODO se ho abc come valori e in un esempio ho a e nell'altro b, quindi vale not c, io comunque tolgo not c.
+
         new_constraints = []
         for constraint in self.constraints:
             new_constraint = constraint.generalize(x)
             if new_constraint is not None:
                 new_constraints.append(new_constraint)
+        if not new_constraints:
+            return None
         return Rule(new_constraints)
 
     def covers(self, x: np.array):
@@ -57,7 +64,7 @@ class Rule:
                 return False
         return True
 
-    def covers_any(self, data: np.array, tol=0):
+    def covers_any(self, data: np.array, indexes, tol=0):
         '''
         Checks if any data point in the data array is covered by this rule.
         Parameters
@@ -68,16 +75,22 @@ class Rule:
         -------
 
         '''
-        not_covered = []
-        for i, data_point in enumerate(data):
-            if self.covers(data_point):
-                not_covered.append(i)
-                if len(not_covered) > tol:
-                    return not_covered
+        covered = []
+        for index in indexes:
+            if self.covers(data[index]):
+                covered.append(index)
+                if len(covered) > tol:
+                    return covered
         return []
 
     def __repr__(self):
-        return " ".join(str(c) for c in sorted(self.constraints, key=lambda c: c.index))
+        ordered_constraints = sorted(self.constraints, key=lambda c: c.index)
+        indexes = [constraint.index for constraint in ordered_constraints]
+        vals = iter([constraint.value for constraint in ordered_constraints])
+
+        return " ".join(["-" if i not in indexes else str(int(next(vals))) for i in range(max(indexes) + 1)])
+        # for c in :
+        # return " ".join(str(c) )
 
 
 # def __hash__(self):
@@ -95,13 +108,14 @@ class RuleByExample(Rule):
         for i, feature in enumerate(x):
             # we create discrete constraints for strings (for sure)
             # TODO using ints for discrete constraints is very quick and dirty, but we may regret it down the line
-            if isinstance(feature, (str, np.int32, np.int64)):
-                constraints.append(DiscreteConstraint(value=feature, index=i))
+            # if isinstance(feature, (str, np.int32, np.int64)):
+            # if feature == 1:
+            constraints.append(DiscreteConstraint(value=feature, index=i))
             # we create ordinal constraints for floats (for sure)
-            elif isinstance(feature, (float, np.float32, np.float64)):
-                constraints.append(OrdinalConstraint(value_min=feature, value_max=feature, index=i))
-            else:
-                raise NotImplementedError(f'found {type(feature)} for {feature}')
+            # elif isinstance(feature, (float, np.float32, np.float64)):
+            #     constraints.append(OrdinalConstraint(value_min=feature, value_max=feature, index=i))
+            # else:
+            #     raise NotImplementedError(f'found {type(feature)} for {feature}')
 
         super().__init__(constraints)
 
@@ -208,7 +222,7 @@ class OrdinalConstraint(Constraint):
                                  index=self.index)
 
 
-class BplClassifier(ClassifierMixin, BaseEstimator):
+class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
     """ A classifier which implements Find-RS...
 
     For more information regarding how to build your own classifier, read more
@@ -256,6 +270,10 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         # Check that X and y have correct shape
         # we accept strings
         X, y = check_X_y(X, y, dtype=None)  # [str, np.int32, np.int64, float, np.float32, np.float64])
+        enc = OneHotEncoder(handle_unknown='ignore')
+        X = enc.fit_transform(X).toarray()
+        self.enc_ = enc
+
         # Store the classes seen during fit
         self.classes_ = unique_labels(y)
         self.n_features_in_ = X.shape[1]
@@ -268,20 +286,21 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
 
         if len(self.classes_) == 1:
             self.target_class_ = target_class
-            self.D_, self.B_ = BplClassifier.find_rs(X, y, target_class)
+            self.D_, self.B_ = BplClassifierOptimization.find_rs(X, y, target_class)
 
         if len(self.classes_) == 2:
             self.target_class_ = target_class
             self.other_class_ = (set(self.classes_) - {self.target_class_}).pop() if len(self.classes_) > 1 else None
 
             if self.T == 1:
-                self.D_, self.B_ = BplClassifier.find_rs(X, y, target_class)
+                self.D_, self.B_ = BplClassifierOptimization.find_rs(X, y, target_class)
             else:
-                outputs = BplClassifier.find_rs_with_multiple_runs(X, y, target_class, T=self.T, pool_size=pool_size)
+                outputs = BplClassifierOptimization.find_rs_with_multiple_runs(X, y, target_class, T=self.T,
+                                                                               pool_size=pool_size)
                 self.Ds_ = [D for D, B in outputs]
 
         else:
-            self.ovr_ = OneVsRestClassifier(BplClassifier(tol=self.tol, T=self.T)).fit(X, y)
+            self.ovr_ = OneVsRestClassifier(BplClassifierOptimization(tol=self.tol, T=self.T)).fit(X, y)
 
         # Return the classifier
         return self
@@ -304,6 +323,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         # Check is fit had been called
         check_is_fitted(self, ['D_', 'B_', 'ovr_', 'Ds_'], all_or_any=any)
 
+        X = self.enc_.transform(X).toarray()
         # Input validation
         X = check_array(X, dtype=None)
         if self.n_features_in_ != X.shape[1]:
@@ -322,12 +342,12 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
                  X])
 
         if len(self.classes_) == 2 and self.strategy == 'bo':
-            rules_bo = BplClassifier.callable_rules_bo(self.Ds_)
+            rules_bo = BplClassifierOptimization.callable_rules_bo(self.Ds_)
             values = [sum([ht(x) for ht in rules_bo]) for x in X]
             return np.array([self.target_class_ if np.sign(v) > 0 else self.other_class_ for v in values])
 
         if len(self.classes_) == 2 and self.strategy == 'bp':
-            h_bp = BplClassifier.callable_rules_bp(self.Ds_)
+            h_bp = BplClassifierOptimization.callable_rules_bp(self.Ds_)
             values = [h_bp(x) for x in X]
             return np.array([self.target_class_ if v > self.T / 2 else self.other_class_ for v in values])
 
@@ -342,37 +362,86 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
 
     @staticmethod
     def find_rs(X, y, target_class, tol=0, optimization=None):
-        train_p = list(X[y == target_class])
-        train_n = list(X[y != target_class])
+
+        def get_subset(train_n, indexes):
+            return train_n[indexes]
+
+        def get_smallest_cluster(new_r, C, notC):
+            first_constraint = next(iter(new_r.constraints))
+            smallest_cluster = C[first_constraint.index] if first_constraint.value == 1 else notC[
+                first_constraint.index]
+
+            for constraint in new_r.constraints:
+                cluster_i = C[constraint.index] if constraint.value == 1 else notC[constraint.index]
+                if len(cluster_i) < len(smallest_cluster):
+                    smallest_cluster = cluster_i
+            return list(smallest_cluster)
+
+        train_p = X[y == target_class].copy()
+        train_n = X[y != target_class].copy()
+
+        # we get the clusters of the negative examples
+        C = []
+        notC = []
+
+        # TODO creare opzione per usare AV
+        # creare un cluster per ogni valore per ogni variabile
+        # lista di dizionari con chiave i valore
+
+        for feature in range(train_n.shape[1]):
+            C.append(set((train_n[:, feature] == 1).nonzero()[0]))
+            notC.append(set((train_n[:, feature] == 0).nonzero()[0]))
 
         D, B, k = [], [], 0
 
-        while len(train_p) > 0:
+        positives_to_check = set(range(train_p.shape[0]))
+        while len(positives_to_check) > 0:
+            print(len(positives_to_check))
+            # we pick a positive example
+            i = positives_to_check.pop()
+            p = train_p[i]
+            r = RuleByExample(p)
+            B.append([train_p[i]])
+            pos_copy = positives_to_check.copy()
+            for other_i in tqdm.tqdm(pos_copy):
+                # attempt to generalize the rule
+                new_r = r.generalize(train_p[other_i])
+                # print("\r" + str(r), end="")
 
-            first = train_p.pop(0)
-            B.append([first])
-            D.append(RuleByExample(first))
+                if new_r is not None:
+                    # smallest_cluster_idxs = get_smallest_cluster(new_r, C, notC)
+                    #
+                    # if not new_r.covers_any(train_n, smallest_cluster_idxs):
+                    #     r = new_r
+                    #     positives_to_check.remove(other_i)
+                    #     B[-1].append(train_p[other_i])
 
-            incompatibles = []
-            while len(train_p) > 0:
-                r = D[-1]
-                p = train_p.pop(0)
 
-                new_r = r.generalize(p)
-                not_covered = new_r.covers_any(train_n, tol=tol)
-                if not not_covered:
-                    D[-1] = new_r  # RuleByExample(p) ??
-                    B[-1].append(p)
-                else:
-                    incompatibles.append(p)  # occhio all'ordine!
+                    # build intersection set of clusters
+                    N = train_n.shape[0]
 
-                    if optimization:
-                        # todo extend to >1 not_covered
-                        train_n = np.insert(train_n, 0, train_n[not_covered[0]], axis=0)
-                        train_n = np.delete(train_n, not_covered[0] + 1, axis=0)
+                    clusters = [C[constraint.index] if constraint.value == 1 else notC[constraint.index] for constraint in new_r.constraints]
+                    clusters = sorted(clusters, key=lambda x: len(x))[:3]
+                    negative_examples_intersection_idxs = set.intersection(*clusters)
 
-            train_p = incompatibles
-        D, B = BplClassifier._prune(D, B)
+                    if not new_r.covers_any(train_n, negative_examples_intersection_idxs):
+                        r = new_r
+                        positives_to_check.remove(other_i)
+                        B[-1].append(train_p[other_i])
+
+                    # if negative_examples_intersection:  # or len(negative_examples_union) < N:
+                    #     # we are covering a negative example, keep old rule
+                    #     pass
+                    # else:
+                    #     # we are not covering a negative example, keep generalized rule
+                    #     r = new_r
+                    #     positives_to_check.remove(other_i)
+                    #     B[-1].append(train_p[other_i])
+                    # print(time.time() - start)
+
+            # assert not r.covers_any(train_n)
+            D.append(r)
+        D, B = BplClassifierOptimization._prune(D, B)
         return D, B
 
     @staticmethod
@@ -411,7 +480,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         X_perm = X[random_indexes].copy()
         y_perm = y[random_indexes].copy()
 
-        Dt, Bt = BplClassifier.find_rs(X_perm, y_perm, target_class, tol=tol)
+        Dt, Bt = BplClassifierOptimization.find_rs(X_perm, y_perm, target_class, tol=tol)
 
         return Dt, Bt
 
@@ -420,9 +489,10 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         if pool_size > 1:
             # TODO why doesn't it work?
             with Pool(pool_size) as p:
-                outputs = p.map(partial(BplClassifier._find_rs_iteration, X, y, target_class, tol=tol), range(T))
+                outputs = p.map(partial(BplClassifierOptimization._find_rs_iteration, X, y, target_class, tol=tol),
+                                range(T))
         else:
-            outputs = [BplClassifier._find_rs_iteration(X, y, target_class, t, tol=tol) for t in range(T)]
+            outputs = [BplClassifierOptimization._find_rs_iteration(X, y, target_class, t, tol=tol) for t in range(T)]
         return outputs
 
     def predict_proba(self, X):
