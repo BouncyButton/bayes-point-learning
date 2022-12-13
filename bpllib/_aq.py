@@ -7,6 +7,8 @@ from sklearn.base import ClassifierMixin, BaseEstimator
 from sklearn.utils import check_X_y
 from sklearn.utils.multiclass import unique_labels
 
+from bpllib._bpl import AgainstDiscreteConstraint
+
 
 class AqClassifier(ClassifierMixin, BaseEstimator):
     def __init__(self, num_best=100, quality_index_type=0):
@@ -47,7 +49,20 @@ def AQAlgorithm(P, N):
     return R
 
 
-def star(p, N, LEF, maxstar):
+def LEF(r, star):
+    # 1. sort the rules in the star according to LEF, from the best to the worst
+
+    # 2a. select the first rule and compute the number of examples it covers.
+    for rule in r:
+
+
+    # 2b. Select the next rule and compute the number of new examples it covers.
+    # 3a. If the number of new examples covered exceeds a new example threshold, then the rule is selected
+    # 3b. otherwise it is discarded.
+    # 4. continue the process until all rules are inspected.
+
+
+def star(p, N, LEF, maxstar=5, mode='TF'):
     r = set()
     for n in N:
         r1 = extension_against(p, n)
@@ -60,11 +75,19 @@ def star(p, N, LEF, maxstar):
             r = r2
     return r
 
+def q(r, w=0.5):
+    p, n, P, N = ...
+    return (p/P) ** w * (((P+N)/N) * (p/(p+n) - P/(P+N))) ** (1-w)
+
+
 def extension_against(p, n):
     r = set()
 
-    for feature in p:
-        pass
+    for index, (feature_p, feature_n) in enumerate(zip(p, n)):
+        if feature_p == feature_n:
+            # new rule is impossible
+            continue
+        else:
+            r.add(AgainstDiscreteConstraint(feature_n, index))
 
     return r
-
