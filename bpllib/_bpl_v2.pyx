@@ -5,7 +5,8 @@ from functools import partial
 from multiprocessing import Pool
 
 import numpy as np
-import tqdm
+cimport numpy as np
+
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
@@ -208,7 +209,7 @@ class OrdinalConstraint(Constraint):
                                  index=self.index)
 
 
-class BplClassifier(ClassifierMixin, BaseEstimator):
+class BplClassifierV2(ClassifierMixin, BaseEstimator):
     """ A classifier which implements Find-RS...
 
     For more information regarding how to build your own classifier, read more
@@ -238,7 +239,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
     def _more_tags(self):
         return {'X_types': ['2darray', 'string'], 'requires_y': True}
 
-    def fit(self, X, y, target_class=None, pool_size=1):
+    def fit(self, np.ndarray X, np.ndarray y, str target_class=None, int pool_size=1):
         """A reference implementation of a fitting function for a classifier.
 
         Parameters
@@ -268,20 +269,20 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
 
         if len(self.classes_) == 1:
             self.target_class_ = target_class
-            self.D_, self.B_ = BplClassifier.find_rs(X, y, target_class)
+            self.D_, self.B_ = BplClassifierV2.find_rs(X, y, target_class)
 
         if len(self.classes_) == 2:
             self.target_class_ = target_class
             self.other_class_ = (set(self.classes_) - {self.target_class_}).pop() if len(self.classes_) > 1 else None
 
             if self.T == 1:
-                self.D_, self.B_ = BplClassifier.find_rs(X, y, target_class)
+                self.D_, self.B_ = BplClassifierV2.find_rs(X, y, target_class)
             else:
-                outputs = BplClassifier.find_rs_with_multiple_runs(X, y, target_class, T=self.T, pool_size=pool_size)
+                outputs = BplClassifierV2.find_rs_with_multiple_runs(X, y, target_class, T=self.T, pool_size=pool_size)
                 self.Ds_ = [D for D, B in outputs]
 
         else:
-            self.ovr_ = OneVsRestClassifier(BplClassifier(tol=self.tol, T=self.T)).fit(X, y)
+            self.ovr_ = OneVsRestClassifier(BplClassifierV2(tol=self.tol, T=self.T)).fit(X, y)
 
         # Return the classifier
         return self
@@ -322,12 +323,12 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
                  X])
 
         if len(self.classes_) == 2 and self.strategy == 'bo':
-            rules_bo = BplClassifier.callable_rules_bo(self.Ds_)
+            rules_bo = BplClassifierV2.callable_rules_bo(self.Ds_)
             values = [sum([ht(x) for ht in rules_bo]) for x in X]
             return np.array([self.target_class_ if np.sign(v) > 0 else self.other_class_ for v in values])
 
         if len(self.classes_) == 2 and self.strategy == 'bp':
-            h_bp = BplClassifier.callable_rules_bp(self.Ds_)
+            h_bp = BplClassifierV2.callable_rules_bp(self.Ds_)
             values = [h_bp(x) for x in X]
             return np.array([self.target_class_ if v > self.T / 2 else self.other_class_ for v in values])
 
@@ -341,11 +342,12 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         return lambda x: sum([rule.covers(x) for D in Ds for rule in D])
 
     @staticmethod
-    def find_rs(X, y, target_class, tol=0, optimization=None):
-        train_p = list(X[y == target_class])
-        train_n = list(X[y != target_class])
-
+    def find_rs(np.ndarray X, np.ndarray y, str target_class, int tol=0, optimization=None):
         D, B, k = [], [], 0
+
+        train_p = X[y == target_class]
+        train_n = X[y != target_class]
+
 
         while len(train_p) > 0:
 
@@ -372,7 +374,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
                         train_n = np.delete(train_n, not_covered[0] + 1, axis=0)
 
             train_p = incompatibles
-        D, B = BplClassifier._prune(D, B)
+        D, B = BplClassifierV2._prune(D, B)
         return D, B
 
     @staticmethod
@@ -411,7 +413,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         X_perm = X[random_indexes].copy()
         y_perm = y[random_indexes].copy()
 
-        Dt, Bt = BplClassifier.find_rs(X_perm, y_perm, target_class, tol=tol)
+        Dt, Bt = BplClassifierV2.find_rs(X_perm, y_perm, target_class, tol=tol)
 
         return Dt, Bt
 
@@ -420,9 +422,9 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         if pool_size > 1:
             # TODO why doesn't it work?
             with Pool(pool_size) as p:
-                outputs = p.map(partial(BplClassifier._find_rs_iteration, X, y, target_class, tol=tol), range(T))
+                outputs = p.map(partial(BplClassifierV2._find_rs_iteration, X, y, target_class, tol=tol), range(T))
         else:
-            outputs = [BplClassifier._find_rs_iteration(X, y, target_class, t, tol=tol) for t in range(T)]
+            outputs = [BplClassifierV2._find_rs_iteration(X, y, target_class, t, tol=tol) for t in range(T)]
         return outputs
 
     def predict_proba(self, X):

@@ -12,6 +12,9 @@ To install the package, run
 
     pip install git+https://github.com/BouncyButton/bayes-point-learning.git
 
+For Cython development, install https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/ on Windows.
+
+
 ## Usage
 
 The `BplClassifier` class is a scikit-learn compatible classifier. It can be used in the same way as any other classifier.
