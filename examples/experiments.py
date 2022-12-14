@@ -9,15 +9,15 @@ import csv
 from bpllib import get_dataset, BplClassifierOptimization, BplClassifier, BplClassifierSplit
 
 test_datasets = [#'CAR',
-                 #'TTT',
-                 # 'CONNECT-4',
-                 'MUSH',
-                 # 'MONKS1',
-                #'MONKS2',
-                 # 'MONKS3',
-                 # 'KR-VS-KP',
-                 # 'VOTE'
-                 ]
+    #'TTT',
+    'CONNECT-4',
+    #'MUSH',
+    #'MONKS1',
+    #'MONKS2',
+    #'MONKS3',
+    #'KR-VS-KP',
+    #'VOTE'
+]
 
 
 def data():
@@ -31,20 +31,19 @@ def template_estimator(data, strategy='bp'):
 
     results = csv.writer(open(filename, 'w'))
     results.writerow(['dataset', 'f1', 'strategy', 'T', 'clusters', 'pool_size', 'tol', 'time_elapsed'])
+
     for name, (X, y) in data:
+        enc = OneHotEncoder(handle_unknown='ignore')
+        X = enc.fit_transform(X).toarray().astype(int)
+
         import time
         orig_start = time.time()
-        for n_clusters in [1,2,3,4,5,10,15]: #+ [15, 20, 30, 50, 100, 100000]:
+        for n_clusters in [5]: #[0, 1, 2, 3, 4, 5, 10, 15, 30, 100, 1000, 10000]:  # + [15, 20, 30, 50, 100, 100000]:
             f1s = []
             times = []
-            for i in range(3):
-                enc = OneHotEncoder(handle_unknown='ignore')
-                X = enc.fit_transform(X).toarray().astype(int)
+            for i in range(5):
                 start = time.time()
-
                 if name == 'MONKS2':
-                    # enc = OneHotEncoder(handle_unknown='ignore')
-                    # X = enc.fit_transform(X).toarray().astype(int)
                     tol = 1
                 else:
                     tol = 0
@@ -62,10 +61,11 @@ def template_estimator(data, strategy='bp'):
                 # print(confusion_matrix(y_test, y_pred))
                 f1s.append(f1)
                 times.append(time.time() - start)
+            print("using", name, "with ", n_clusters, "clusters took", np.mean(times), "seconds")
             results.writerow([name, np.mean(f1s), '--', 1, n_clusters, 1, tol, np.mean(times)])
 
-            print("time elapsed:", time.time() - orig_start)
             print(np.mean(f1s), "+-", np.std(f1s))
+        print("time elapsed:", time.time() - orig_start)
 
 
 def optimization():
@@ -85,6 +85,5 @@ if __name__ == '__main__':
     template_estimator(data())  # , 'bo')
     # print('==== BP ====')
     # template_estimator(data(), 'bp')
-
 
 # TOOO fai confronti sistematici facendo T / |D|.

@@ -387,6 +387,48 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
         return lambda x: sum([rule.covers(x) for D in Ds for rule in D])
 
     @staticmethod
+    def find_rs_equiv(X, y, target_class, tol=0, optimization=None, **kwargs):
+        n_clusters = kwargs.get('n_clusters', 5)
+        print(n_clusters)
+
+        # split dataset
+        train_p = (X[y == target_class].copy())
+        train_n = (X[y != target_class].copy())
+
+        B, C, D, k = [], [], [], 0
+
+        # we get the clusters of the negative examples
+
+        #for feature in range(len(train_n[0])):
+        #    C.append({value: set((train_n[:, feature] == value).nonzero()[0])
+        #              for value in np.unique(train_n[:, feature])})
+
+        positives_to_check = set(range(len(train_p)))
+
+        while len(positives_to_check) > 0:
+            i = positives_to_check.pop()
+            p = train_p[i]
+
+            positive_assigned = False
+            for i, (bin, rule) in enumerate(zip(B, D)):
+                new_rule = rule.generalize(p)
+                if new_rule is not None and not new_rule.covers_any(train_n, list(range(len(train_n)))):
+                    # the rule is ok
+                    B[i].append(p)
+                    D[i] = new_rule
+                    positive_assigned = True
+                    break
+
+            if not positive_assigned:
+                # create a new bin
+                D.append(RuleByExample(p))
+                B.append([p])
+
+        D, B = BplClassifierOptimization._prune(D, B)
+        return D, B
+
+
+    @staticmethod
     def find_rs(X, y, target_class, tol=0, optimization=None, **kwargs):
         n_clusters = kwargs.get('n_clusters', 5)
         print(n_clusters)
@@ -479,7 +521,7 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
 
                     else:
                         # use the old method
-                        if not new_r.covers_any(train_n, range(len(train_n[0]))):
+                        if not new_r.covers_any(train_n, range(len(train_n))):
                             r = new_r
                             positives_to_check.remove(other_i)
                             B[-1].append(train_p[other_i])
