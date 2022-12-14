@@ -5,7 +5,7 @@ from sklearn.metrics import f1_score, confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 import csv
-
+import sys
 from bpllib import get_dataset, BplClassifierOptimization, BplClassifier, BplClassifierSplit
 
 test_datasets = [#'CAR',
@@ -38,7 +38,7 @@ def template_estimator(data, strategy='bp'):
 
         import time
         orig_start = time.time()
-        for n_clusters in [5]: #[0, 1, 2, 3, 4, 5, 10, 15, 30, 100, 1000, 10000]:  # + [15, 20, 30, 50, 100, 100000]:
+        for n_clusters in [int(sys.argv[1])]: #[0, 1, 2, 3, 4, 5, 10, 15, 30, 100, 1000, 10000]:  # + [15, 20, 30, 50, 100, 100000]:
             f1s = []
             times = []
             for i in range(5):
