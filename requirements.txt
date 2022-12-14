@@ -3,7 +3,6 @@ scipy
 scikit-learn
 pandas
 matplotlib
-
 pytest
 setuptools
-Cython~=0.29.32
+tqdm

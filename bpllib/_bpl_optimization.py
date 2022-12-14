@@ -96,6 +96,32 @@ class Rule:
 # def __hash__(self):
 #     pass
 
+class ListRule:
+    def __init__(self, x):
+        self.constraints = list(x)
+
+    def generalize(self, x):
+        new_rule = ListRule(self.constraints)
+        for i, (ri, xi) in enumerate(zip(self.constraints, x)):
+            if ri is not None and xi != ri:
+                new_rule.constraints[i] = None
+        if all([value is None for value in new_rule.constraints]):
+            return None
+        return new_rule
+
+    def covers(self, x):
+        for xi, ri in zip(x, self.constraints):
+            if ri is not None and xi != ri:
+                return False
+        return True
+
+    def covers_any(self, data, idxs):
+        for idx in idxs:
+            if self.covers(data[idx]):
+                return True
+        return False
+
+
 class RuleByExample(Rule):
     '''
     It is useful to instance a rule starting from a given input data point.
@@ -252,7 +278,7 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
     def _more_tags(self):
         return {'X_types': ['2darray', 'string'], 'requires_y': True}
 
-    def fit(self, X, y, target_class=None, pool_size=1):
+    def fit(self, X, y, target_class=None, pool_size=1, **kwargs):
         """A reference implementation of a fitting function for a classifier.
 
         Parameters
@@ -270,30 +296,29 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
         # Check that X and y have correct shape
         # we accept strings
         X, y = check_X_y(X, y, dtype=None)  # [str, np.int32, np.int64, float, np.float32, np.float64])
-        enc = OneHotEncoder(handle_unknown='ignore')
-        X = enc.fit_transform(X).toarray()
-        self.enc_ = enc
+
+        # old hack
+        # enc = OneHotEncoder(handle_unknown='ignore')
+        # X = enc.fit_transform(X).toarray()
+        # self.enc_ = enc
 
         # Store the classes seen during fit
         self.classes_ = unique_labels(y)
         self.n_features_in_ = X.shape[1]
-
-        # if multiclass or len(self.classes_) > 2:
-        #    raise NotImplementedError('Multiclass implementation not available yet')
 
         if target_class is None:
             target_class = max(self.classes_)
 
         if len(self.classes_) == 1:
             self.target_class_ = target_class
-            self.D_, self.B_ = BplClassifierOptimization.find_rs(X, y, target_class)
+            self.D_, self.B_ = BplClassifierOptimization.find_rs(X, y, target_class, **kwargs)
 
         if len(self.classes_) == 2:
             self.target_class_ = target_class
             self.other_class_ = (set(self.classes_) - {self.target_class_}).pop() if len(self.classes_) > 1 else None
 
             if self.T == 1:
-                self.D_, self.B_ = BplClassifierOptimization.find_rs(X, y, target_class)
+                self.D_, self.B_ = BplClassifierOptimization.find_rs(X, y, target_class, **kwargs)
             else:
                 outputs = BplClassifierOptimization.find_rs_with_multiple_runs(X, y, target_class, T=self.T,
                                                                                pool_size=pool_size)
@@ -323,7 +348,8 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
         # Check is fit had been called
         check_is_fitted(self, ['D_', 'B_', 'ovr_', 'Ds_'], all_or_any=any)
 
-        X = self.enc_.transform(X).toarray()
+        # old hack
+        # X = self.enc_.transform(X).toarray()
         # Input validation
         X = check_array(X, dtype=None)
         if self.n_features_in_ != X.shape[1]:
@@ -361,7 +387,9 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
         return lambda x: sum([rule.covers(x) for D in Ds for rule in D])
 
     @staticmethod
-    def find_rs(X, y, target_class, tol=0, optimization=None):
+    def find_rs(X, y, target_class, tol=0, optimization=None, **kwargs):
+        n_clusters = kwargs.get('n_clusters', 5)
+        print(n_clusters)
 
         def get_subset(train_n, indexes):
             return train_n[indexes]
@@ -377,33 +405,39 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
                     smallest_cluster = cluster_i
             return list(smallest_cluster)
 
-        train_p = X[y == target_class].copy()
-        train_n = X[y != target_class].copy()
+        train_p = (X[y == target_class].copy())
+        train_n = (X[y != target_class].copy())
 
         # we get the clusters of the negative examples
         C = []
-        notC = []
 
-        # TODO creare opzione per usare AV
-        # creare un cluster per ogni valore per ogni variabile
-        # lista di dizionari con chiave i valore
+        # C1, v=A
+        # C1, v=B
+        # C2C
 
-        for feature in range(train_n.shape[1]):
-            C.append(set((train_n[:, feature] == 1).nonzero()[0]))
-            notC.append(set((train_n[:, feature] == 0).nonzero()[0]))
+        for feature in range(len(train_n[0])):
+            column = [row[feature] for row in train_n]
+            C.append({value: set((train_n[:, feature] == value).nonzero()[0])
+                      for value in np.unique(train_n[:, feature])})
+            # C.append({value: set([x for x in column if x == value])
+            #           for value in np.unique(train_n[:, feature])})
 
         D, B, k = [], [], 0
 
-        positives_to_check = set(range(train_p.shape[0]))
+        positives_to_check = set(range(len(train_p)))
         while len(positives_to_check) > 0:
-            print(len(positives_to_check))
+            print("\n", len(positives_to_check), "\n\n")
+            intersect_cluster_lengths = []
+
+            # print(len(positives_to_check))
             # we pick a positive example
             i = positives_to_check.pop()
             p = train_p[i]
-            r = RuleByExample(p)
+            r = RuleByExample(p)  # altra implement. ListRule(p)
+            # r = ListRule(p)
             B.append([train_p[i]])
             pos_copy = positives_to_check.copy()
-            for other_i in tqdm.tqdm(pos_copy):
+            for iter_count, other_i in enumerate(pos_copy):
                 # attempt to generalize the rule
                 new_r = r.generalize(train_p[other_i])
                 # print("\r" + str(r), end="")
@@ -416,18 +450,39 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
                     #     positives_to_check.remove(other_i)
                     #     B[-1].append(train_p[other_i])
 
-
                     # build intersection set of clusters
-                    N = train_n.shape[0]
 
-                    clusters = [C[constraint.index] if constraint.value == 1 else notC[constraint.index] for constraint in new_r.constraints]
-                    clusters = sorted(clusters, key=lambda x: len(x))[:3]
-                    negative_examples_intersection_idxs = set.intersection(*clusters)
+                    # clusters = [C[constraint.index] if constraint.value == 1 else notC[constraint.index] for constraint in new_r.constraints]
 
-                    if not new_r.covers_any(train_n, negative_examples_intersection_idxs):
-                        r = new_r
-                        positives_to_check.remove(other_i)
-                        B[-1].append(train_p[other_i])
+                    # C1->5 notC1->4
+                    # C2->3 notC2->6
+                    # TODO ordinare C1..Cn, notC1..Cn
+                    # x2=0 and x1=1
+
+                    if n_clusters != 0:
+                        # altra implementazione
+                        clusters = [C[constr.index].get(constr.value, set()) for constr in new_r.constraints]
+                        # clusters = [C[i].get(v, set()) for i, v in enumerate(new_r.constraints) if v is not None]
+                        # TODO: use heapq to get the smallest 3 in linear time
+                        clusters = sorted(clusters, key=lambda x: len(x))[:n_clusters]
+                        negative_examples_intersection_idxs = set.intersection(*clusters)
+                        intersect_cluster_lengths.append(len(negative_examples_intersection_idxs))
+
+                        print("\r {0:.2f} {1:.2f}%".format(np.average(intersect_cluster_lengths[-50:]),
+                                                           iter_count / len(pos_copy) * 100), end='   ')
+                        # TODO array numpy vs liste?  => non sembra esser meglio
+
+                        if not new_r.covers_any(train_n, negative_examples_intersection_idxs):
+                            r = new_r
+                            positives_to_check.remove(other_i)
+                            B[-1].append(train_p[other_i])
+
+                    else:
+                        # use the old method
+                        if not new_r.covers_any(train_n, range(len(train_n[0]))):
+                            r = new_r
+                            positives_to_check.remove(other_i)
+                            B[-1].append(train_p[other_i])
 
                     # if negative_examples_intersection:  # or len(negative_examples_union) < N:
                     #     # we are covering a negative example, keep old rule
@@ -473,26 +528,28 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
         return D, B
 
     @staticmethod
-    def _find_rs_iteration(X, y, target_class, t, tol=0):
+    def _find_rs_iteration(X, y, target_class, t, tol=0, **kwargs):
         np.random.seed(t)
 
         random_indexes = np.random.RandomState(seed=t).permutation(len(X))
         X_perm = X[random_indexes].copy()
         y_perm = y[random_indexes].copy()
 
-        Dt, Bt = BplClassifierOptimization.find_rs(X_perm, y_perm, target_class, tol=tol)
+        Dt, Bt = BplClassifierOptimization.find_rs(X_perm, y_perm, target_class, tol=tol, **kwargs)
 
         return Dt, Bt
 
     @staticmethod
-    def find_rs_with_multiple_runs(X, y, target_class, tol=0, pool_size=1, T=1):
+    def find_rs_with_multiple_runs(X, y, target_class, tol=0, pool_size=1, T=1, **kwargs):
         if pool_size > 1:
             # TODO why doesn't it work?
             with Pool(pool_size) as p:
-                outputs = p.map(partial(BplClassifierOptimization._find_rs_iteration, X, y, target_class, tol=tol),
-                                range(T))
+                outputs = p.map(
+                    partial(BplClassifierOptimization._find_rs_iteration, X, y, target_class, tol=tol, **kwargs),
+                    range(T))
         else:
-            outputs = [BplClassifierOptimization._find_rs_iteration(X, y, target_class, t, tol=tol) for t in range(T)]
+            outputs = [BplClassifierOptimization._find_rs_iteration(X, y, target_class, t, tol=tol, **kwargs) for t in
+                       range(T)]
         return outputs
 
     def predict_proba(self, X):
