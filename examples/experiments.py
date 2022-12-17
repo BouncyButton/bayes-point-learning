@@ -40,7 +40,7 @@ def template_estimator(data, strategy='bp'):
         X = enc.fit_transform(X).toarray().astype(int)
 
         orig_start = time.time()
-        for n_clusters in [3]:  # [0, 1, 2, 3, 4, 5, 10, 15, 30, 100, 1000, 10000]:  # + [15, 20, 30, 50, 100, 100000]:
+        for n_clusters in [0]:  # [0, 1, 2, 3, 4, 5, 10, 15, 30, 100, 1000, 10000]:  # + [15, 20, 30, 50, 100, 100000]:
             f1s = []
             times = []
             for i in range(1):
@@ -56,7 +56,7 @@ def template_estimator(data, strategy='bp'):
                 # enc = OneHotEncoder(handle_unknown='ignore')
                 # X_train = enc.fit_transform(X_train).toarray().astype(int)
                 # X_test = enc.transform(X_test).toarray().astype(int)
-                est.fit(X_train, y_train, pool_size=1, n_clusters=n_clusters, k_means=True)
+                est.fit(X_train, y_train, pool_size=1, n_clusters=n_clusters, k_means=False)
                 y_pred = est.predict(X_test)
                 f1 = f1_score(y_test, y_pred)
                 print(name, f1)
