@@ -8,6 +8,7 @@ from multiprocessing import Pool
 import numpy as np
 import tqdm as tqdm
 from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.cluster import MiniBatchKMeans
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
@@ -23,6 +24,19 @@ class Rule:
     def __init__(self, constraints):
         # TODO maybe i should include the whole dataset to remove constraints like [min(X[:,0]), max(X[:,0])]
         self.constraints = set(constraints)
+
+    def is_same_as(self, rule):
+        for c1, c2 in zip(self.constraints, rule.constraints):
+            if c1.index != c2.index or c1.value != c2.value:
+                return False
+        # print("it's the same!")
+        return True
+
+    def generalize_rule(self, rule):
+        intersect = rule.constraints.intersection(self.constraints)
+        if not intersect:
+            return None
+        return Rule(intersect)
 
     def generalize(self, x: np.array):
         '''
@@ -40,12 +54,25 @@ class Rule:
         # TODO se ho abc come valori e in un esempio ho a e nell'altro b, quindi vale not c, io comunque tolgo not c.
 
         new_constraints = []
+        # changed = False
         for constraint in self.constraints:
             new_constraint = constraint.generalize(x)
             if new_constraint is not None:
                 new_constraints.append(new_constraint)
+                # if constraint != new_constraint:
+                # we changed a constraint, the rule is changed
+                # (not verified for discrete constraints, but may be for continuous ones)
+                #     changed = True
+            else:
+                pass
+                # we removed a constraint, the rule is changed
+                # changed = True
+
+        # if not changed:
+        # return "not changed"
         if not new_constraints:
             return None
+
         return Rule(new_constraints)
 
     def covers(self, x: np.array):
@@ -75,6 +102,8 @@ class Rule:
         -------
 
         '''
+
+        # TODO aggiungere riordinamento train_n <=> occhio ai "clusters"
         covered = []
         for index in indexes:
             if self.covers(data[index]):
@@ -157,6 +186,12 @@ class Constraint:
     def __repr__(self):
         raise NotImplementedError
 
+    def __eq__(self, other):
+        return self.index == other.index
+
+    def __hash__(self):
+        return hash(self.index)
+
     def satisfied(self, x):
         '''
         Checks if a constraint is satisfied.
@@ -213,6 +248,12 @@ class DiscreteConstraint(Constraint):
     def __init__(self, value=None, index=None):
         self.value = value
         super().__init__(index=index)
+
+    def __eq__(self, other):
+        return super().__eq__(other) and self.value == other.value
+
+    def __hash__(self):
+        return hash((self.index, self.value))
 
     def satisfied(self, x):
         return x[self.index] == self.value
@@ -387,6 +428,140 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
         return lambda x: sum([rule.covers(x) for D in Ds for rule in D])
 
     @staticmethod
+    def find_rs_split(X, y, target_class, **kwargs):
+        P = X[y == target_class]
+        N = X[y != target_class]
+
+        D, B = BplClassifierOptimization.find_rs_rec(P, N)
+        return D, B
+
+    @staticmethod
+    def find_rs_rec(P, N):
+        if len(P) < 5000:
+            return BplClassifierOptimization.find_rs_base_case(P, N)
+
+        D1, B1 = BplClassifierOptimization.find_rs_rec(P[:len(P) // 2], N)
+        D2, B2 = BplClassifierOptimization.find_rs_rec(P[len(P) // 2:], N)
+
+        return BplClassifierOptimization.find_rs_for_rules(D1, D2, B1, B2, N)
+
+    @staticmethod
+    def find_rs_for_rules(D1, D2, B1, B2, N, **kwargs):
+        print('running find_rs_for_rules')
+        n_clusters = kwargs.get('n_clusters', 5)
+
+        B, C, D, k = [], [], [], 0
+
+        oldD = D1 + D2
+        oldB = B1 + B2
+
+        positives_to_check = set(range(len(oldD)))
+
+        while len(positives_to_check) > 0:
+            print(len(positives_to_check))
+            i = positives_to_check.pop()
+            p = oldD[i]
+
+            positive_assigned = False
+            for i, (bin, rule) in enumerate(zip(B, D)):
+                new_rule = rule.generalize_rule(p)
+                if new_rule == rule:
+                    B[i].append(p)
+                    positive_assigned = True
+                    break
+
+                elif new_rule is not None and not new_rule.covers_any(N, list(range(len(N)))):
+                    # the rule is ok
+                    B[i].extend(oldB[i])
+                    D[i] = new_rule
+                    positive_assigned = True
+                    break
+
+            if not positive_assigned:
+                # create a new bin
+                D.append(p)
+                B.append(list(oldB[i]))
+
+        D, B = BplClassifierOptimization._prune(D, B)
+        return D, B
+
+    @staticmethod
+    def find_rs_base_case(P, N, **kwargs):
+        n_clusters = kwargs.get('n_clusters', 3)
+        # we get the clusters of the negative examples
+        C = []
+
+        # C1, v=A
+        # C1, v=B
+        # C2C
+
+        for feature in range(len(P[0])):
+            C.append({value: set((N[:, feature] == value).nonzero()[0])
+                      for value in np.unique(N[:, feature])})
+
+        D, B, k = [], [], 0
+
+        positives_to_check = set(range(len(P)))
+
+        rules_lengths = []
+        while len(positives_to_check) > 0:
+            print("\n", len(positives_to_check), "\n\n")
+            intersect_cluster_lengths = []
+
+            # we pick a positive example
+            i = positives_to_check.pop()
+            p = P[i]
+            r = RuleByExample(p)  # altra implement. ListRule(p)
+            # r = ListRule(p)
+            B.append([P[i]])
+            pos_copy = positives_to_check.copy()
+            rule_lengths = []
+
+            for iter_count, other_i in enumerate(pos_copy):
+                rule_lengths.append(len(r.constraints))
+                # attempt to generalize the rule
+                new_r = r.generalize(P[other_i])
+
+                if new_r == 'not changed':
+                    # rule satisfies the example
+                    positives_to_check.remove(other_i)
+                    B[-1].append(P[other_i])
+
+                elif new_r is not None:
+                    print("\r {0:3.2f}% current rule: {1}".format(iter_count / len(pos_copy) * 100, str(r)), end="")
+
+                    if n_clusters != 0:
+                        # altra implementazione
+                        clusters = [C[constr.index].get(constr.value, set()) for constr in new_r.constraints]
+                        # clusters = [C[i].get(v, set()) for i, v in enumerate(new_r.constraints) if v is not None]
+                        # TODO: use heapq to get the smallest 3 in linear time
+                        clusters = sorted(clusters, key=lambda x: len(x))[:n_clusters]
+                        negative_examples_intersection_idxs = set.intersection(*clusters)
+                        intersect_cluster_lengths.append(len(negative_examples_intersection_idxs))
+
+                        # print("\r {0:.2f} {1:.2f}%".format(np.average(intersect_cluster_lengths[-50:]),
+                        #                                   iter_count / len(pos_copy) * 100), end='   ')
+                        # TODO array numpy vs liste?  => non sembra esser meglio
+
+                        if not new_r.covers_any(N, negative_examples_intersection_idxs):
+                            r = new_r
+                            positives_to_check.remove(other_i)
+                            B[-1].append(P[other_i])
+
+                    else:
+                        # use the old method
+                        if not new_r.covers_any(N, range(len(N))):
+                            r = new_r
+                            positives_to_check.remove(other_i)
+                            B[-1].append(P[other_i])
+
+            D.append(r)
+            rules_lengths.append(rule_lengths)
+
+        D, B = BplClassifierOptimization._prune(D, B)
+        return D, B
+
+    @staticmethod
     def find_rs_equiv(X, y, target_class, tol=0, optimization=None, **kwargs):
         n_clusters = kwargs.get('n_clusters', 5)
         print(n_clusters)
@@ -399,7 +574,7 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
 
         # we get the clusters of the negative examples
 
-        #for feature in range(len(train_n[0])):
+        # for feature in range(len(train_n[0])):
         #    C.append({value: set((train_n[:, feature] == value).nonzero()[0])
         #              for value in np.unique(train_n[:, feature])})
 
@@ -412,7 +587,12 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
             positive_assigned = False
             for i, (bin, rule) in enumerate(zip(B, D)):
                 new_rule = rule.generalize(p)
-                if new_rule is not None and not new_rule.covers_any(train_n, list(range(len(train_n)))):
+                if new_rule == 'not changed':
+                    B[i].append(p)
+                    positive_assigned = True
+                    break
+
+                elif new_rule is not None and not new_rule.covers_any(train_n, list(range(len(train_n)))):
                     # the rule is ok
                     B[i].append(p)
                     D[i] = new_rule
@@ -427,10 +607,10 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
         D, B = BplClassifierOptimization._prune(D, B)
         return D, B
 
-
     @staticmethod
     def find_rs(X, y, target_class, tol=0, optimization=None, **kwargs):
         n_clusters = kwargs.get('n_clusters', 5)
+        k_means = kwargs.get('k_means', False)
         print(n_clusters)
 
         def get_subset(train_n, indexes):
@@ -450,6 +630,37 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
         train_p = (X[y == target_class].copy())
         train_n = (X[y != target_class].copy())
 
+        # UB(p) # update per un positivo sulla regola / # pos
+
+        # numeri positiv che hanno implicato un cambio di regole
+        # diviso il numero di positivi visti
+        # funzionava meglio sulla versione precedente!
+        # bound su errore falsi negativi.
+
+        if k_means:
+            print('start clustering')
+            K_MEANS_CLUSTERS = 20  # int(len(train_p) * 0.001
+            k_means = MiniBatchKMeans(n_clusters=K_MEANS_CLUSTERS,
+                                      random_state=0,
+                                      batch_size=1000,
+                                      max_iter=10).fit(train_p)
+
+            positive_clusters = k_means.predict(train_p)
+
+            # x1 = [0,0,1]
+            # x2 = [0,1,0]
+
+            new_train_p = []
+            for cluster_index in range(K_MEANS_CLUSTERS):
+                # pick examples that belong to the current cluster
+                cluster = train_p[positive_clusters == cluster_index]
+                new_train_p.extend(cluster)
+
+            train_p = np.array(new_train_p)
+
+            # train_p = train_p.take(positive_clusters, axis=0)
+            print('end clustering')
+
         # we get the clusters of the negative examples
         C = []
 
@@ -467,6 +678,8 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
         D, B, k = [], [], 0
 
         positives_to_check = set(range(len(train_p)))
+
+        rules_lengths = []
         while len(positives_to_check) > 0:
             print("\n", len(positives_to_check), "\n\n")
             intersect_cluster_lengths = []
@@ -479,12 +692,33 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
             # r = ListRule(p)
             B.append([train_p[i]])
             pos_copy = positives_to_check.copy()
+            rule_lengths = []
+
+            MAX_PATIENCE = len(positives_to_check)  # min(len(positives_to_check) // 5, 100)
+            patience = MAX_PATIENCE
             for iter_count, other_i in enumerate(pos_copy):
+                if patience == 0:
+                    for idx in positives_to_check.copy():
+                        if r.covers(train_p[idx]):
+                            positives_to_check.remove(idx)
+                            B[-1].append(train_p[idx])
+
+                    break
+                rule_lengths.append(len(r.constraints))
+
+                if r.covers(train_p[other_i]):
+                    # rule satisfies the example
+                    positives_to_check.remove(other_i)
+                    B[-1].append(train_p[other_i])
+                    continue
+
                 # attempt to generalize the rule
                 new_r = r.generalize(train_p[other_i])
                 # print("\r" + str(r), end="")
 
                 if new_r is not None:
+                    # print("\r {0:3.2f}% current rule: {1}".format(iter_count / len(pos_copy) * 100, str(r)), end="")
+
                     # smallest_cluster_idxs = get_smallest_cluster(new_r, C, notC)
                     #
                     # if not new_r.covers_any(train_n, smallest_cluster_idxs):
@@ -510,22 +744,27 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
                         negative_examples_intersection_idxs = set.intersection(*clusters)
                         intersect_cluster_lengths.append(len(negative_examples_intersection_idxs))
 
-                        print("\r {0:.2f} {1:.2f}%".format(np.average(intersect_cluster_lengths[-50:]),
-                                                           iter_count / len(pos_copy) * 100), end='   ')
+                        # print("\r {0:.2f} {1:.2f}%".format(np.average(intersect_cluster_lengths[-50:]),
+                        #                                   iter_count / len(pos_copy) * 100), end='   ')
                         # TODO array numpy vs liste?  => non sembra esser meglio
 
                         if not new_r.covers_any(train_n, negative_examples_intersection_idxs):
+                            patience = MAX_PATIENCE
                             r = new_r
                             positives_to_check.remove(other_i)
                             B[-1].append(train_p[other_i])
+                        else:
+                            patience -= 1
 
                     else:
                         # use the old method
                         if not new_r.covers_any(train_n, range(len(train_n))):
+                            patience = MAX_PATIENCE
                             r = new_r
                             positives_to_check.remove(other_i)
                             B[-1].append(train_p[other_i])
-
+                        else:
+                            patience -= 1
                     # if negative_examples_intersection:  # or len(negative_examples_union) < N:
                     #     # we are covering a negative example, keep old rule
                     #     pass
@@ -538,6 +777,18 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
 
             # assert not r.covers_any(train_n)
             D.append(r)
+            rules_lengths.append(rule_lengths)
+            #
+            import matplotlib.pyplot as plt
+            for i, rl in enumerate(rules_lengths):
+                plt.plot(rl, label=f'B{i}, len(B{i})={len(B[i])}, len(D{i})={len(D[i].constraints)}')
+
+            plt.ylim(ymin=0)
+            plt.ylabel('number of constraints')
+            plt.xlabel('number of positive examples checked')
+            plt.legend()
+            plt.show()
+
         D, B = BplClassifierOptimization._prune(D, B)
         return D, B
 

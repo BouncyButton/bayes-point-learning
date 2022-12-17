@@ -8,15 +8,16 @@ import csv
 import sys
 from bpllib import get_dataset, BplClassifierOptimization, BplClassifier, BplClassifierSplit
 
-test_datasets = [#'CAR',
-    #'TTT',
+test_datasets = [
+    # 'CAR',
+    # 'TTT',
     'CONNECT-4',
-    #'MUSH',
-    #'MONKS1',
-    #'MONKS2',
-    #'MONKS3',
-    #'KR-VS-KP',
-    #'VOTE'
+    # 'MUSH',
+    # 'MONKS1',
+    # 'MONKS2',
+    # 'MONKS3',
+    # 'KR-VS-KP',
+    # 'VOTE'
 ]
 
 
@@ -32,28 +33,30 @@ def template_estimator(data, strategy='bp'):
     results = csv.writer(open(filename, 'w'))
     results.writerow(['dataset', 'f1', 'strategy', 'T', 'clusters', 'pool_size', 'tol', 'time_elapsed'])
 
+    import time
+    init_start = time.time()
     for name, (X, y) in data:
         enc = OneHotEncoder(handle_unknown='ignore')
         X = enc.fit_transform(X).toarray().astype(int)
 
-        import time
         orig_start = time.time()
-        for n_clusters in [int(sys.argv[1])]: #[0, 1, 2, 3, 4, 5, 10, 15, 30, 100, 1000, 10000]:  # + [15, 20, 30, 50, 100, 100000]:
+        for n_clusters in [3]:  # [0, 1, 2, 3, 4, 5, 10, 15, 30, 100, 1000, 10000]:  # + [15, 20, 30, 50, 100, 100000]:
             f1s = []
             times = []
-            for i in range(5):
+            for i in range(1):
                 start = time.time()
                 if name == 'MONKS2':
                     tol = 1
                 else:
                     tol = 0
                 est = BplClassifierOptimization(T=1, strategy=None, tol=tol)
-
+                # X = X[:10000]
+                # y = y[:10000]
                 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=i)
                 # enc = OneHotEncoder(handle_unknown='ignore')
                 # X_train = enc.fit_transform(X_train).toarray().astype(int)
                 # X_test = enc.transform(X_test).toarray().astype(int)
-                est.fit(X_train, y_train, pool_size=1, n_clusters=n_clusters)
+                est.fit(X_train, y_train, pool_size=1, n_clusters=n_clusters, k_means=True)
                 y_pred = est.predict(X_test)
                 f1 = f1_score(y_test, y_pred)
                 print(name, f1)
@@ -66,6 +69,7 @@ def template_estimator(data, strategy='bp'):
 
             print(np.mean(f1s), "+-", np.std(f1s))
         print("time elapsed:", time.time() - orig_start)
+    print("overall time elapsed:", time.time() - init_start)
 
 
 def optimization():
