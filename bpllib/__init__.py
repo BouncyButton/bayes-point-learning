@@ -10,9 +10,11 @@ from ._bpl_optimization import BplClassifierOptimization
 from ._definitions import ROOT_DIR
 from ._dataset import get_dataset
 from ._version import __version__
+from ._aq import AqClassifier
 
 __all__ = ['TemplateEstimator', 'TemplateClassifier', 'TemplateTransformer',
            'BplClassifier',
+           'AqClassifier',
            'get_dataset',
            # 'BplClassifierV2',
            'BplClassifierV5',

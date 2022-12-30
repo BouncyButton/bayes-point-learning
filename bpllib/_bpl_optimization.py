@@ -103,7 +103,6 @@ class Rule:
 
         '''
 
-        # TODO aggiungere riordinamento train_n <=> occhio ai "clusters"
         covered = []
         i = None
         index = None
@@ -115,10 +114,9 @@ class Rule:
 
         if optimization:
             indexes.insert(0, index)
-            del indexes[i+1]
+            del indexes[i + 1]
 
         return covered
-
 
     def __repr__(self):
         ordered_constraints = sorted(self.constraints, key=lambda c: c.index)
@@ -544,8 +542,13 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
 
         for feature in range(len(train_n[0])):
             column = [row[feature] for row in train_n]
-            C.append({value: set((train_n[:, feature] == value).nonzero()[0])
-                      for value in np.unique(train_n[:, feature])})
+            if n_clusters == 1:
+                C.append({value: list((train_n[:, feature] == value).nonzero()[0])
+                          for value in np.unique(train_n[:, feature])})
+            elif n_clusters > 1:
+                C.append({value: set((train_n[:, feature] == value).nonzero()[0])
+                          for value in np.unique(train_n[:, feature])})
+
             # C.append({value: set([x for x in column if x == value])
             #           for value in np.unique(train_n[:, feature])})
 
@@ -569,7 +572,7 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
             pos_copy = positives_to_check.copy()
             rule_lengths = []
 
-            MAX_PATIENCE = min(len(positives_to_check) // 5, 1000)
+            MAX_PATIENCE = 1000 # min(len(positives_to_check) // 5, 1000)
             patience = MAX_PATIENCE
             for iter_count, other_i in enumerate(pos_copy):
                 if patience == 0:
@@ -610,20 +613,43 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
                     # TODO ordinare C1..Cn, notC1..Cn
                     # x2=0 and x1=1
 
-                    if n_clusters != 0:
+
+                    # caso base: no negativi coperti (all'inizio quando riempi un bin vuoto)
+                    # hai una lista di controesempi. all'inizio è vuota, applichi i cluster.
+                    # non appena un cluster risulta coperto, peschi un controesempio ed entra
+                    # nella lista dei controesempi.
+
+                    # alle iterazioni successive: la lista sarà sempre più popolata
+                    # prima controesempi
+                    # poi clusters.
+
+                    # se il boost non c'è, ciao ciao clusters.
+                    # reinizializza i controesempi per ogni bin.
+
+                    if n_clusters == 1:
+                        clusters = [C[constr.index].get(constr.value, set()) for constr in new_r.constraints]
+                        min_cluster = min(clusters, key=len)
+                        if not new_r.covers_any(train_n, min_cluster):
+                            patience = MAX_PATIENCE
+                            r = new_r
+                            positives_to_check.remove(other_i)
+                            B[-1].append(train_p[other_i])
+                        else:
+                            patience -= 1
+
+                    elif n_clusters > 1:
                         # altra implementazione
                         clusters = [C[constr.index].get(constr.value, set()) for constr in new_r.constraints]
-                        # clusters = [C[i].get(v, set()) for i, v in enumerate(new_r.constraints) if v is not None]
-                        # TODO: use heapq to get the smallest 3 in linear time
+                        # min_cluster = min(clusters, key=len)
                         clusters = sorted(clusters, key=lambda x: len(x))[:n_clusters]
                         negative_examples_intersection_idxs = set.intersection(*clusters)
                         intersect_cluster_lengths.append(len(negative_examples_intersection_idxs))
+                        # intersect_cluster_lengths.append(len(min_cluster))
 
                         # print("\r {0:.2f} {1:.2f}%".format(np.average(intersect_cluster_lengths[-50:]),
                         #                                   iter_count / len(pos_copy) * 100), end='   ')
-                        # TODO array numpy vs liste?  => non sembra esser meglio
 
-                        if not new_r.covers_any(train_n, negative_examples_intersection_idxs):
+                        if not new_r.covers_any(train_n, negative_examples_intersection_idxs):  # min_cluster):
                             patience = MAX_PATIENCE
                             r = new_r
                             positives_to_check.remove(other_i)
@@ -632,6 +658,7 @@ class BplClassifierOptimization(ClassifierMixin, BaseEstimator):
                             patience -= 1
 
                     else:
+                        assert n_clusters == 0
                         # use the old method
                         negative_examples_covered = new_r.covers_any(train_n, negatives_to_check, optimization=True)
 

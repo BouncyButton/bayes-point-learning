@@ -18,9 +18,34 @@ class Rule:
     It is made up by many constraints, each one considering a single feature.
     '''
 
-    def __init__(self, constraints):
-        # TODO maybe i should include the whole dataset to remove constraints like [min(X[:,0]), max(X[:,0])]
-        self.constraints = set(constraints)
+    def __init__(self, constraints: dict):
+        self.constraints = constraints  # was set()
+
+    def __mul__(self, other):
+        '''
+        Returns the conjunction of two rules
+        Parameters
+        ----------
+        other: the other rule
+
+        -------
+
+        '''
+        new_constraints = {}
+        for index in set(self.constraints.keys()).union(set(other.constraints.keys())):
+            c1 = self.constraints.get(index)
+            c2 = other.constraints.get(index)
+            if c1 is None:
+                new_constraints[index] = c2
+            elif c2 is None:
+                new_constraints[index] = c1
+            else:
+                c = c1 & c2
+                if c is None:
+                    return None
+                else:
+                    new_constraints[index] = c
+        return Rule(new_constraints)
 
     def generalize(self, x: np.array):
         '''
@@ -34,11 +59,11 @@ class Rule:
         -------
 
         '''
-        new_constraints = []
-        for constraint in self.constraints:
+        new_constraints = {}
+        for idx, constraint in self.constraints.items():
             new_constraint = constraint.generalize(x)
             if new_constraint is not None:
-                new_constraints.append(new_constraint)
+                new_constraints[idx] = new_constraint
         return Rule(new_constraints)
 
     def covers(self, x: np.array):
@@ -52,7 +77,7 @@ class Rule:
         -------
 
         '''
-        for constraint in self.constraints:
+        for constraint in self.constraints.values():
             if not constraint.satisfied(x):
                 return False
         return True
@@ -76,8 +101,32 @@ class Rule:
                     return not_covered
         return []
 
+    def covers_all(self, data: np.array):
+        '''
+        Checks if all data points in the data array are covered by this rule.
+        Parameters
+        ----------
+        data: np.array which contains the data to be processed
+
+        -------
+
+        '''
+        for data_point in data:
+            if not self.covers(data_point):
+                return False
+        return True
+
+    def __call__(self, *args, **kwargs):
+        return self.covers(*args, **kwargs)
+
+    def examples_covered(self, X):
+        return X[[self.covers(x) for x in X]]
+
+    def examples_not_covered(self, X):
+        return X[[not self.covers(x) for x in X]]
+
     def __repr__(self):
-        return " ".join(str(c) for c in sorted(self.constraints, key=lambda c: c.index))
+        return " ^ ".join(str(c) for c in sorted(self.constraints.values(), key=lambda c: c.index))
 
 
 # def __hash__(self):
@@ -90,16 +139,16 @@ class RuleByExample(Rule):
 
     def __init__(self, example: np.array):
         x = example.flatten()
-        constraints = []
+        constraints = {}
 
         for i, feature in enumerate(x):
             # we create discrete constraints for strings (for sure)
             # TODO using ints for discrete constraints is very quick and dirty, but we may regret it down the line
             if isinstance(feature, (str, np.int32, np.int64)):
-                constraints.append(DiscreteConstraint(value=feature, index=i))
+                constraints[i] = DiscreteConstraint(value=feature, index=i)
             # we create ordinal constraints for floats (for sure)
             elif isinstance(feature, (float, np.float32, np.float64)):
-                constraints.append(OrdinalConstraint(value_min=feature, value_max=feature, index=i))
+                constraints[i] = OrdinalConstraint(value_min=feature, value_max=feature, index=i)
             else:
                 raise NotImplementedError(f'found {type(feature)} for {feature}')
 
@@ -114,8 +163,14 @@ class Constraint:
     def __init__(self, index=None):
         self.index = index
 
+    def __eq__(self, other):
+        return self.index == other.index
+
     def __repr__(self):
-        raise NotImplementedError
+        raise NotImplementedError()
+
+    def __and__(self, other):
+        raise NotImplementedError()
 
     def satisfied(self, x):
         '''
@@ -153,6 +208,9 @@ class AgainstDiscreteConstraint(Constraint):
         super().__init__(index)
         self.value = value
 
+    def __eq__(self, other):
+        return super().__eq__(other) and self.value == other.value
+
     def __repr__(self):
         return f'X[{self.index}]!={self.value}'
 
@@ -174,6 +232,19 @@ class DiscreteConstraint(Constraint):
         self.value = value
         super().__init__(index=index)
 
+    def __eq__(self, other):
+        return super().__eq__(other) and self.value == other.value
+
+    def __and__(self, other):
+        if isinstance(other, DiscreteOrConstraint):
+            if self.value in other.values:
+                return self
+            else:
+                return None
+        if self.value == other.value:
+            return self
+        return None
+
     def satisfied(self, x):
         return x[self.index] == self.value
 
@@ -184,6 +255,29 @@ class DiscreteConstraint(Constraint):
 
     def __repr__(self):
         return f'X[{self.index}] == {self.value}'
+
+
+class DiscreteOrConstraint(Constraint):
+    def __init__(self, values, index):
+        super().__init__(index=index)
+        self.values = set(values)
+
+    def __eq__(self, other):
+        return super().__eq__(other) and self.values == other.values
+
+    def __and__(self, other):
+        intersection = self.values.intersection(other.values)
+        if len(intersection) > 1:
+            return DiscreteOrConstraint(values=intersection, index=self.index)
+        if len(intersection) == 1:
+            return DiscreteConstraint(value=intersection.pop(), index=self.index)
+        return None
+
+    def satisfied(self, x):
+        return x[self.index] in self.values
+
+    def __repr__(self):
+        return f'X[{self.index}] in {self.values}'
 
 
 class OrdinalConstraint(Constraint):
@@ -205,6 +299,13 @@ class OrdinalConstraint(Constraint):
     def generalize(self, x):
         return OrdinalConstraint(value_min=min(self.value_min, x[self.index]),
                                  value_max=max(self.value_max, x[self.index]),
+                                 index=self.index)
+
+    def __and__(self, other):
+        if not isinstance(other, OrdinalConstraint):
+            raise TypeError("Only ordinal constraints can be combined with an ordinal constraint")
+        return OrdinalConstraint(value_min=max(self.value_min, other.value_min),
+                                 value_max=min(self.value_max, other.value_max),
                                  index=self.index)
 
 

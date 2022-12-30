@@ -4,11 +4,11 @@ from sklearn.model_selection import train_test_split
 
 from bpllib import get_dataset, BplClassifier
 
-test_datasets = [#'CAR',
-                 'TTT',
-                 # 'CONNECT-4',
-                 # 'MUSH', 'MONKS1', 'MONKS2', 'MONKS3', 'KR-VS-KP', 'VOTE'
-                 ]
+test_datasets = [  # 'CAR',
+    'TTT',
+    # 'CONNECT-4',
+    'MUSH', 'MONKS1', 'MONKS2', 'MONKS3', 'KR-VS-KP', 'VOTE'
+]
 
 
 @pytest.fixture
@@ -44,3 +44,4 @@ def test_template_estimator_bp(data):
         est.fit(X_train, y_train)
         y_pred = est.predict(X_test)
         print(name, f1_score(y_test, y_pred))
+
