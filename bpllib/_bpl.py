@@ -11,6 +11,8 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 from sklearn.utils.multiclass import unique_labels
 
+from bpllib._bp import callable_rules_bo, callable_rules_bp
+
 
 class Rule:
     '''
@@ -128,9 +130,18 @@ class Rule:
     def __repr__(self):
         return " ^ ".join(str(c) for c in sorted(self.constraints.values(), key=lambda c: c.index))
 
+    def __len__(self):
+        return len(self.constraints)
 
-# def __hash__(self):
-#     pass
+    def values_count(self):
+        return sum(len(c) for c in self.constraints.values())
+
+    def __eq__(self, other):
+        return self.constraints == other.constraints
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.constraints.items())))
+
 
 class RuleByExample(Rule):
     '''
@@ -170,6 +181,12 @@ class Constraint:
         raise NotImplementedError()
 
     def __and__(self, other):
+        raise NotImplementedError()
+
+    def __len__(self):
+        raise NotImplementedError()
+
+    def __hash__(self):
         raise NotImplementedError()
 
     def satisfied(self, x):
@@ -235,6 +252,12 @@ class DiscreteConstraint(Constraint):
     def __eq__(self, other):
         return super().__eq__(other) and self.value == other.value
 
+    def __hash__(self):
+        return hash((self.index, self.value))
+
+    def __len__(self):
+        return 1
+
     def __and__(self, other):
         if isinstance(other, DiscreteOrConstraint):
             if self.value in other.values:
@@ -265,7 +288,15 @@ class DiscreteOrConstraint(Constraint):
     def __eq__(self, other):
         return super().__eq__(other) and self.values == other.values
 
+    def __len__(self):
+        return len(self.values)
+
     def __and__(self, other):
+        if isinstance(other, DiscreteConstraint):
+            if other.value in self.values:
+                return other
+            else:
+                return None
         intersection = self.values.intersection(other.values)
         if len(intersection) > 1:
             return DiscreteOrConstraint(values=intersection, index=self.index)
@@ -334,6 +365,18 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         self.tol = tol
         self.T = T
         self.strategy = strategy
+
+    def alpha_representation(self):
+        from collections import Counter
+        cnt = Counter()
+        for ruleset in self.Ds_:
+            curr_counts = Counter(ruleset)
+            cnt.update(curr_counts)
+        return cnt
+
+    def best_k_rules(self, k=20):
+        cnt = self.alpha_representation()
+        return cnt.most_common(k)
 
     # used to specify to estimator_checks that we accept strings and should not fail, see #11401 of scikit-learn docs
     def _more_tags(self):
@@ -423,23 +466,14 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
                  X])
 
         if len(self.classes_) == 2 and self.strategy == 'bo':
-            rules_bo = BplClassifier.callable_rules_bo(self.Ds_)
+            rules_bo = callable_rules_bo(self.Ds_)
             values = [sum([ht(x) for ht in rules_bo]) for x in X]
             return np.array([self.target_class_ if np.sign(v) > 0 else self.other_class_ for v in values])
 
         if len(self.classes_) == 2 and self.strategy == 'bp':
-            h_bp = BplClassifier.callable_rules_bp(self.Ds_)
+            h_bp = callable_rules_bp(self.Ds_)
             values = [h_bp(x) for x in X]
             return np.array([self.target_class_ if v > self.T / 2 else self.other_class_ for v in values])
-
-    @staticmethod
-    def callable_rules_bo(Ds):
-        return [lambda x: 1 if any([rule.covers(x) for rule in D]) else -1 for D in Ds]
-
-    @staticmethod
-    def callable_rules_bp(Ds):
-        # NO ! return [lambda x: sum([rule.covers(x) for rule in D]) for D in Ds]
-        return lambda x: sum([rule.covers(x) for D in Ds for rule in D])
 
     @staticmethod
     def find_rs(X, y, target_class, tol=0, optimization=None):

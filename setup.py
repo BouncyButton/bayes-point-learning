@@ -5,7 +5,6 @@ import codecs
 import os
 
 from setuptools import find_packages, setup
-from Cython.Build import cythonize
 import numpy
 
 # get __version__ from _version.py
@@ -64,5 +63,5 @@ setup(name=DISTNAME,
       packages=find_packages(),
       install_requires=INSTALL_REQUIRES,
       extras_require=EXTRAS_REQUIRE,
-      ext_modules=cythonize('bpllib/prova.pyx'),
+      # ext_modules=cythonize('bpllib/prova.pyx'),
       include_dirs=[numpy.get_include()])

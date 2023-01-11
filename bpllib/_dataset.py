@@ -80,6 +80,77 @@ def get_dataset(dataset_name='TTT'):
             names=[letter + number for letter in 'a' for number in '123456789'] + ['class'],
             positive_label='positive')
 
+    elif dataset_name == 'CERV':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/00383/risk_factors_cervical_cancer.csv',
+            names=['Age', 'Number of sexual partners', 'First sexual intercourse', 'Num of pregnancies', 'Smokes',
+                   'Smokes (years)', 'Smokes (packs/year)', 'Hormonal Contraceptives',
+                   'Hormonal Contraceptives (years)', 'IUD', 'IUD (years)', 'STDs', 'STDs (number)',
+                   'STDs:condylomatosis', 'STDs:cervical condylomatosis', 'STDs:vaginal condylomatosis',
+                   'STDs:vulvo-perineal condylomatosis', 'STDs:syphilis', 'STDs:pelvic inflammatory disease',
+                   'STDs:genital herpes', 'STDs:molluscum contagiosum', 'STDs:AIDS', 'STDs:HIV', 'STDs:Hepatitis B',
+                   'STDs:HPV', 'STDs: Number of diagnosis', 'STDs: Time since first diagnosis',
+                   'STDs: Time since last diagnosis', 'Dx:Cancer', 'Dx:CIN', 'Dx:HPV', 'Dx', 'Hinselmann', 'Schiller',
+                   'Citology', 'Biopsy'],
+            positive_label='1'
+        )
+
+    elif dataset_name == 'HIV':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/00330/newHIV-1_data.zip',
+            names=['amino', 'class'],
+            positive_label='1',
+        )
+        X = np.array([np.array([c for c in row]) for row in X])
+
+    elif dataset_name == 'BREAST':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer/breast-cancer.data',
+            names=['class', 'age', 'menopause', 'tumor-size', 'inv-nodes', 'node-caps', 'deg-malig', 'breast',
+                   'breast-quad', 'irradiat'],
+            positive_label='recurrence-events',
+        )
+
+    elif dataset_name == 'BALANCE':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/balance-scale/balance-scale.data',
+            names=['class', 'left-weight', 'left-distance', 'right-weight', 'right-distance'],
+            positive_label='B'
+        )
+
+    elif dataset_name == 'BALLOONS1':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/balloons/adult+stretch.data',
+            names=['color', 'size', 'act', 'age', 'inflated'],
+            positive_label='T')
+
+    elif dataset_name == 'BALLOONS2':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/balloons/adult-stretch.data',
+            names=['color', 'size', 'act', 'age', 'inflated'],
+            positive_label='T')
+
+    elif dataset_name == 'BALLOONS3':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/balloons/yellow-small+adult-stretch.data',
+            names=['color', 'size', 'act', 'age', 'inflated'],
+            positive_label='T')
+
+    elif dataset_name == 'BALLOONS4':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/balloons/yellow-small.data',
+            names=['color', 'size', 'act', 'age', 'inflated'],
+            positive_label='T')
+
+    elif dataset_name == 'LENSES':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/lenses/lenses.data',
+            names=['id', 'age', 'spectacle-prescrip', 'astigmatic', 'tear-prod-rate', 'class'],
+            positive_label='1'
+        )
+
+
+
     elif dataset_name == 'VOTE':
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/voting-records/house-votes-84.data',
