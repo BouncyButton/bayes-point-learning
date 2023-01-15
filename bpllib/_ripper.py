@@ -22,7 +22,7 @@ class RIPPERClassifier(ClassifierMixin, BaseEstimator):
     def __init__(self, T=1):
         self.T = T
 
-    def fit(self, X, y, target_class=1, find_best_k=False):
+    def fit(self, X, y, target_class=1, find_best_k=False, starting_seed=0):
         self.target_class_ = target_class
         X, y = check_X_y(X, y, dtype=[str, int])
         self.classes_ = unique_labels(y)
@@ -48,7 +48,7 @@ class RIPPERClassifier(ClassifierMixin, BaseEstimator):
                 perm_df = df.sample(frac=1, random_state=t)
 
                 # create a new classifier
-                clf = RIPPER()
+                clf = RIPPER(random_state=starting_seed * self.T + t)  # dovrei?
                 clf.fit(perm_df, class_feat='class', pos_class=target_class)
                 self.classifiers_.append(clf)
                 ruleset = clf.ruleset_
@@ -68,6 +68,7 @@ class RIPPERClassifier(ClassifierMixin, BaseEstimator):
             best_acc = 0
             MAX_PATIENCE = 10
             patience = MAX_PATIENCE
+            self.suggested_k_ = 0
             if find_best_k:
                 for k in range(1, len(self.counter_)):
 
@@ -119,6 +120,8 @@ class RIPPERClassifier(ClassifierMixin, BaseEstimator):
             vote = 0
 
             alpha_rules = sum(self.counter_.values())
+            if alpha_rules == 0:
+                return self.other_class_
             alpha_k_rules = sum([alpha for r, alpha in self.counter_.most_common(n_rules)])
             gamma_k = alpha_k_rules / alpha_rules
 

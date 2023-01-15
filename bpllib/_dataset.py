@@ -7,7 +7,7 @@ from bpllib import ROOT_DIR
 DATASET_FOLDER = 'dataset'
 
 
-def _read_and_create(url, names, sep=',', drop_names=None, url_test=None):
+def _read_and_create(url, names, sep=',', drop_names=None, url_test=None, name_in_zip=None):
     import os
     import pandas as pd
 
@@ -30,6 +30,13 @@ def _read_and_create(url, names, sep=',', drop_names=None, url_test=None):
             f.close()
 
         filepath = filepath[:-2]
+
+    if url.split('.')[-1] == 'zip':
+        import zipfile
+        with zipfile.ZipFile(filepath, 'r') as zip_ref:
+            zip_ref.extractall(os.path.join(ROOT_DIR, DATASET_FOLDER))
+
+        filepath = os.path.join(ROOT_DIR, DATASET_FOLDER, name_in_zip)
 
     df = pd.read_csv(filepath, names=names, header=0, sep=sep)
     if url_test:
@@ -65,9 +72,10 @@ def _split_X_y(df, positive_label=None, target_feature='class'):
     return df.drop(target_feature, axis=1), df[target_feature] == positive_label
 
 
-def _get_data(url, names, positive_label, target_feature='class', sep=',', drop_names=None, url_test=None):
-    dataset = _read_and_create(url, names, sep=sep, drop_names=drop_names, url_test=url_test)
+def _get_data(url, names, positive_label, target_feature='class', sep=',', drop_names=None, url_test=None, name_in_zip=None):
+    dataset = _read_and_create(url, names, sep=sep, drop_names=drop_names, url_test=url_test, name_in_zip=name_in_zip)
     X, y = _split_X_y(dataset, positive_label, target_feature=target_feature)
+    assert y.sum() != 0
 
     return X, y
 
@@ -92,23 +100,25 @@ def get_dataset(dataset_name='TTT'):
                    'STDs:HPV', 'STDs: Number of diagnosis', 'STDs: Time since first diagnosis',
                    'STDs: Time since last diagnosis', 'Dx:Cancer', 'Dx:CIN', 'Dx:HPV', 'Dx', 'Hinselmann', 'Schiller',
                    'Citology', 'Biopsy'],
-            positive_label='1'
+            positive_label=1, target_feature='Biopsy'
         )
 
     elif dataset_name == 'HIV':
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/00330/newHIV-1_data.zip',
             names=['amino', 'class'],
-            positive_label='1',
+            positive_label=1,
+            name_in_zip='746Data.txt'
         )
-        X = np.array([np.array([c for c in row]) for row in X])
+        X = np.array([np.array([c for c in row[0]]) for row in X.values])
+        assert y.sum() != 0
 
     elif dataset_name == 'BREAST':
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer/breast-cancer.data',
             names=['class', 'age', 'menopause', 'tumor-size', 'inv-nodes', 'node-caps', 'deg-malig', 'breast',
                    'breast-quad', 'irradiat'],
-            positive_label='recurrence-events',
+            positive_label='recurrence-events', target_feature='class'
         )
 
     elif dataset_name == 'BALANCE':

@@ -11,7 +11,8 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 from sklearn.utils.multiclass import unique_labels
 
-from bpllib._bp import callable_rules_bo, callable_rules_bp
+from bpllib._bp import callable_rules_bo, callable_rules_bp, alpha_representation, predict_one_with_bo, \
+    predict_one_with_bp, predict_one_with_best_k
 
 
 class Rule:
@@ -155,7 +156,7 @@ class RuleByExample(Rule):
         for i, feature in enumerate(x):
             # we create discrete constraints for strings (for sure)
             # TODO using ints for discrete constraints is very quick and dirty, but we may regret it down the line
-            if isinstance(feature, (str, np.int32, np.int64)):
+            if isinstance(feature, (str, int, np.int32, np.int64)):
                 constraints[i] = DiscreteConstraint(value=feature, index=i)
             # we create ordinal constraints for floats (for sure)
             elif isinstance(feature, (float, np.float32, np.float64)):
@@ -310,6 +311,8 @@ class DiscreteOrConstraint(Constraint):
     def __repr__(self):
         return f'X[{self.index}] in {self.values}'
 
+    def __hash__(self):
+        return hash((self.index, tuple(sorted(self.values))))
 
 class OrdinalConstraint(Constraint):
     '''
@@ -369,7 +372,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
     def alpha_representation(self):
         from collections import Counter
         cnt = Counter()
-        for ruleset in self.Ds_:
+        for ruleset in self.rulesets_:
             curr_counts = Counter(ruleset)
             cnt.update(curr_counts)
         return cnt
@@ -382,7 +385,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
     def _more_tags(self):
         return {'X_types': ['2darray', 'string'], 'requires_y': True}
 
-    def fit(self, X, y, target_class=None, pool_size=1):
+    def fit(self, X, y, target_class=None, pool_size=1, find_best_k=False, starting_seed=0):
         """A reference implementation of a fitting function for a classifier.
 
         Parameters
@@ -412,25 +415,47 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
 
         if len(self.classes_) == 1:
             self.target_class_ = target_class
-            self.D_, self.B_ = BplClassifier.find_rs(X, y, target_class)
+            self.rules_, self.bins_ = BplClassifier.find_rs(X, y, target_class)
 
         if len(self.classes_) == 2:
             self.target_class_ = target_class
             self.other_class_ = (set(self.classes_) - {self.target_class_}).pop() if len(self.classes_) > 1 else None
 
             if self.T == 1:
-                self.D_, self.B_ = BplClassifier.find_rs(X, y, target_class)
+                self.rules_, self.bins_ = BplClassifier.find_rs(X, y, target_class)
             else:
-                outputs = BplClassifier.find_rs_with_multiple_runs(X, y, target_class, T=self.T, pool_size=pool_size)
-                self.Ds_ = [D for D, B in outputs]
+                outputs = BplClassifier.find_rs_with_multiple_runs(X, y, target_class, T=self.T, pool_size=pool_size, starting_seed=starting_seed)
+                self.rulesets_ = [D for D, B in outputs]
+                self.counter_ = alpha_representation(self.rulesets_)
+
 
         else:
             self.ovr_ = OneVsRestClassifier(BplClassifier(tol=self.tol, T=self.T)).fit(X, y)
 
+        # suggest k rules using best k
+        best_acc = 0
+        MAX_PATIENCE = 10
+        patience = MAX_PATIENCE
+
+        self.suggested_k_ = 0
+        if find_best_k:
+            for k in range(1, len(self.counter_)):
+
+                if patience == 0:
+                    break
+                most_freq_rules = self.counter_.most_common(k)
+                y_train_pred = [self.predict_one(x, strategy='best-k', n_rules=k, most_freq_rules=most_freq_rules)
+                                for x in X]
+                acc = np.mean(y_train_pred == y)
+                if acc > best_acc:
+                    self.suggested_k_ = k
+                else:
+                    patience -= 1
+
         # Return the classifier
         return self
 
-    def predict(self, X: np.array):
+    def predict(self, X: np.array, strategy=None, **kwargs):
         """ A reference implementation of a prediction for a classifier.
 
         Parameters
@@ -446,7 +471,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         """
 
         # Check is fit had been called
-        check_is_fitted(self, ['D_', 'B_', 'ovr_', 'Ds_'], all_or_any=any)
+        check_is_fitted(self, ['rules_', 'bins_', 'ovr_', 'rulesets_'], all_or_any=any)
 
         # Input validation
         X = check_array(X, dtype=None)
@@ -460,20 +485,26 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         if len(self.classes_) > 2:
             return self.ovr_.predict(X)
 
-        if len(self.classes_) == 2 and self.strategy is None:
+        if len(self.classes_) == 2 and strategy is None:
             return np.array(
-                [self.target_class_ if (any([rule.covers(row) for rule in self.D_])) else self.other_class_ for row in
+                [self.target_class_ if (any([rule.covers(row) for rule in self.rules_])) else self.other_class_ for row in
                  X])
 
-        if len(self.classes_) == 2 and self.strategy == 'bo':
-            rules_bo = callable_rules_bo(self.Ds_)
+        if len(self.classes_) == 2 and strategy == 'bo':
+            rules_bo = callable_rules_bo(self.rulesets_)
             values = [sum([ht(x) for ht in rules_bo]) for x in X]
             return np.array([self.target_class_ if np.sign(v) > 0 else self.other_class_ for v in values])
 
-        if len(self.classes_) == 2 and self.strategy == 'bp':
-            h_bp = callable_rules_bp(self.Ds_)
+        if len(self.classes_) == 2 and strategy == 'bp':
+            h_bp = callable_rules_bp(self.rulesets_)
             values = [h_bp(x) for x in X]
             return np.array([self.target_class_ if v > self.T / 2 else self.other_class_ for v in values])
+
+        if len(self.classes_) == 2 and strategy == 'best-k':
+            n_rules = kwargs.get('n_rules', 20)
+            most_freq_rules = self.counter_.most_common(n_rules)
+            return np.array([self.predict_one(x, most_freq_rules=most_freq_rules,
+                                              strategy=strategy, n_rules=n_rules) for x in X])
 
     @staticmethod
     def find_rs(X, y, target_class, tol=0, optimization=None):
@@ -539,10 +570,10 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         return D, B
 
     @staticmethod
-    def _find_rs_iteration(X, y, target_class, t, tol=0):
-        np.random.seed(t)
+    def _find_rs_iteration(X, y, target_class, t, tol=0, starting_seed=0):
+        np.random.seed(t+starting_seed)
 
-        random_indexes = np.random.RandomState(seed=t).permutation(len(X))
+        random_indexes = np.random.RandomState(seed=t+starting_seed).permutation(len(X))
         X_perm = X[random_indexes].copy()
         y_perm = y[random_indexes].copy()
 
@@ -551,13 +582,13 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         return Dt, Bt
 
     @staticmethod
-    def find_rs_with_multiple_runs(X, y, target_class, tol=0, pool_size=1, T=1):
+    def find_rs_with_multiple_runs(X, y, target_class, tol=0, pool_size=1, T=1, starting_seed=0):
         if pool_size > 1:
             # TODO why doesn't it work?
             with Pool(pool_size) as p:
-                outputs = p.map(partial(BplClassifier._find_rs_iteration, X, y, target_class, tol=tol), range(T))
+                outputs = p.map(partial(BplClassifier._find_rs_iteration, X, y, target_class, tol=tol, starting_seed=starting_seed), range(T))
         else:
-            outputs = [BplClassifier._find_rs_iteration(X, y, target_class, t, tol=tol) for t in range(T)]
+            outputs = [BplClassifier._find_rs_iteration(X, y, target_class, t, tol=tol, starting_seed=starting_seed) for t in range(T)]
         return outputs
 
     def predict_proba(self, X):
@@ -586,3 +617,15 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
             return list(result)
         else:
             raise NotImplementedError(f'strategy {strategy} not implemented')
+
+    def predict_one(self, x, most_freq_rules=None, strategy='bo', n_rules=None):
+        if strategy == 'bo':
+            return predict_one_with_bo(self.rulesets_, x, self.target_class_, self.other_class_)
+        elif strategy == 'bp':
+            return predict_one_with_bp(self.rulesets_, x, self.target_class_, self.other_class_, self.T)
+        elif strategy == 'best-k':
+            return predict_one_with_best_k(x, n_rules, n_rules, self.counter_, most_freq_rules, self.target_class_,
+                                           self.other_class_, self.T)
+        else:
+            raise NotImplementedError(f'strategy {strategy} not implemented')
+

@@ -9,15 +9,17 @@ import copy
 from sklearn.base import ClassifierMixin, BaseEstimator
 from sklearn.utils import check_X_y, check_array
 from sklearn.utils.multiclass import unique_labels
+from tqdm import tqdm
 
-from bpllib._bp import callable_rules_bo, callable_rules_bp
+from bpllib._bp import callable_rules_bo, callable_rules_bp, predict_one_with_best_k, alpha_representation
 from bpllib._bpl import AgainstDiscreteConstraint, Rule, DiscreteConstraint, DiscreteOrConstraint
 
 
 class AqClassifier(ClassifierMixin, BaseEstimator):
-    def __init__(self, maxstar=5, T=1):
+    def __init__(self, maxstar=1, T=1, verbose=0):
         self.maxstar = maxstar
         self.T = T
+        self.verbose = verbose
 
     def _more_tags(self):
         return {'X_types': ['2darray', 'string'], 'requires_y': True}
@@ -25,7 +27,7 @@ class AqClassifier(ClassifierMixin, BaseEstimator):
     def alpha_representation(self):
         from collections import Counter
         cnt = Counter()
-        for ruleset in self.set_of_rules:
+        for ruleset in self.rulesets_:
             curr_counts = Counter(ruleset)
             cnt.update(curr_counts)
         return cnt
@@ -48,10 +50,10 @@ class AqClassifier(ClassifierMixin, BaseEstimator):
         df['class'] = y
 
         if self.T == 1:
-            self.rules = AQAlgorithm(X[y == target_class], X[y != target_class], self.maxstar)
+            self.rules_ = AQAlgorithm(X[y == target_class], X[y != target_class], self.maxstar, verbose=self.verbose)
         else:
-            self.set_of_rules = self.aq_with_multiple_runs(X, y, target_class, T=self.T, maxstar=self.maxstar)
-
+            self.rulesets_ = self.aq_with_multiple_runs(X, y, target_class, T=self.T, maxstar=self.maxstar)
+            self.counter_ = alpha_representation(self.rulesets_)
         return self
 
     def aq_with_multiple_runs(self, X, y, target_class, T=1, pool_size=1, maxstar=5):
@@ -60,33 +62,40 @@ class AqClassifier(ClassifierMixin, BaseEstimator):
                 outputs = p.map(partial(AQAlgorithm, X[y == target_class], X[y != target_class], maxstar=maxstar),
                                 range(T))
         else:
-            outputs = [AQAlgorithm(X[y == target_class], X[y != target_class], maxstar=maxstar, seed=t) for t in range(T)]
+            outputs = [AQAlgorithm(X[y == target_class], X[y != target_class], maxstar=maxstar, seed=t) for t in
+                       range(T)]
         # returns T sets of rules
         return outputs
 
-    def predict(self, X, strategy='bo'):
+    def predict(self, X, strategy='bo', **kwargs):
         X = check_array(X, dtype=None)
-        return np.array([self.predict_one(x, strategy=strategy) for x in X])
+        return np.array([self.predict_one(x, strategy=strategy, **kwargs) for x in X])
 
-    def predict_one(self, x, strategy='bo'):
+    def predict_one(self, x, strategy='bo', **kwargs):
         if self.T == 1:
-            for rule in self.rules:
+            for rule in self.rules_:
                 if rule.covers(x):
                     return self.target_class_
             return 1 - self.target_class_
         elif strategy == 'bo':
-            rules_bo = callable_rules_bo(self.set_of_rules)
+            rules_bo = callable_rules_bo(self.rulesets_)
             value = sum([ht(x) for ht in rules_bo])
             return self.target_class_ if np.sign(value) > 0 else self.other_class_
         elif strategy == 'bp':
-            h_bp = callable_rules_bp(self.set_of_rules)
+            h_bp = callable_rules_bp(self.rulesets_)
             value = h_bp(x)
             return self.target_class_ if value > self.T / 2 else self.other_class_
+        elif strategy == 'best-k':
+            most_freq_rules = kwargs.get('most_freq_rules')
+            n_rules = kwargs.get('n_rules')
+            return predict_one_with_best_k(x, n_rules, n_rules, self.counter_, most_freq_rules, self.target_class_,
+                                           self.other_class_, self.T)
+
         else:
             raise NotImplementedError('strategy not implemented')
 
 
-def AQAlgorithm(P, N, maxstar=5, seed=None):
+def AQAlgorithm(P, N, maxstar=5, seed=None, verbose=0):
     if seed:
         np.random.seed(seed)
 
@@ -100,15 +109,20 @@ def AQAlgorithm(P, N, maxstar=5, seed=None):
 
     P1 = P
     R = set()  # rule set
+    if verbose > 0:
+        pbar = tqdm(total=len(P))
+
     while len(P1) > 0:
-        print(len(P1))
+        if verbose > 0:
+            pbar.n = len(P) - len(P1)
+            pbar.refresh()
         # select random p from P1
         idx = 0  # np.random.randint(0, len(P1))
         p = P1[idx]
         # print("pos", p)
 
         # find a rule from p
-        rule = star(p, P1, N, unique_values, maxstar)
+        rule = star(p, P1, N, unique_values, maxstar, verbose=verbose)
 
         # filter out positive examples that are covered by the rule
         P1 = rule.examples_not_covered(P1)
@@ -163,10 +177,11 @@ def Q(r, P, N, unique_values, eps=1e-8):
     return len(r.examples_covered(P)) + min_len + max_val_count  # / len(P)  # + 1 - len(x.examples_covered(N)) / len(N)
 
 
-def star(p, P, N: np.array, unique_values, maxstar=5, mode='TF', minq=0.5):
+def star(p, P, N: np.array, unique_values, maxstar=5, mode='TF', minq=0.5, verbose=0):
     PS = set()
     for n in N:
-        # print("neg", n)
+        if verbose > 3:
+            print("neg", n)
         # select a negative example n from N
         # extend the rule against n
         new_PS = extension_against(p, n, unique_values)
@@ -177,10 +192,12 @@ def star(p, P, N: np.array, unique_values, maxstar=5, mode='TF', minq=0.5):
             PS = new_PS
         else:
             # perform logical multiplication of PS and new_PS
-            # print("PS", PS)
-            # print("newps:", new_PS)
+            if verbose > 2:
+                print("PS", PS)
+                print("newps:", new_PS)
             PS = {r1 * r2 for r1 in PS for r2 in new_PS if r1 * r2}
-            # print("result: ", PS)
+            if verbose > 2:
+                print("result: ", PS)
         # keep only maxstar best complexes in PS, according to Q
         PS = set(sorted(PS, key=lambda r: Q(r, P, N, unique_values), reverse=True)[:maxstar])
 
@@ -189,7 +206,8 @@ def star(p, P, N: np.array, unique_values, maxstar=5, mode='TF', minq=0.5):
         # N = N[np.array([not any([r.covers(x) for r in PS]) for x in N])]
 
     # it seems we need to return one rule at a time, so we return the best rule according to Q
-    print([(r, "q=" + str(Q(r, P, N, unique_values))) for r in PS])
+    if verbose > 1:
+        print([(r, "q=" + str(Q(r, P, N, unique_values))) for r in PS])
     # you should find a way to break ties
     # here i pick all the rules with max q
     # max_q = max([Q(r2, P, N) for r2 in PS])
@@ -208,8 +226,9 @@ def star(p, P, N: np.array, unique_values, maxstar=5, mode='TF', minq=0.5):
     #     rule_found = rules_with_max_q[0]
 
     rule_found = max(PS, key=lambda r: Q(r, P, N, unique_values))
-    print(rule_found, '\tp=', len(rule_found.examples_covered(P)), '\tn=',
-          len(rule_found.examples_covered(N)))
+    if verbose > 1:
+        print(rule_found, '\tp=', len(rule_found.examples_covered(P)), '\tn=',
+              len(rule_found.examples_covered(N)))
     return rule_found
 
     # r = set()  # empty rule
