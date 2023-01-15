@@ -27,16 +27,18 @@ class ID3Classifier(ClassifierMixin, BaseEstimator):
     def __init__(self, T=1):
         self.T = T
 
-
     def predict(self, X, strategy='bo', n_rules=None):
         if self.T == 1:
             if isinstance(X, pd.DataFrame):
                 X = X.values
+            X = X.astype(str)  # quick and dirty fix
             return np.array([1 if any([r.covers(x) for r in self.ruleset_]) else 0 for x in X])
 
         if strategy == 'bo' or strategy == 'bp' or strategy == 'best-k':
             if isinstance(X, pd.DataFrame):
                 X = np.array(X.values)
+            X = X.astype(str)
+
             if strategy == 'best-k':
                 most_freq_rules = self.counter_.most_common(n_rules)
                 return np.array([self.predict_one(x, most_freq_rules=most_freq_rules,
@@ -93,21 +95,23 @@ class ID3Classifier(ClassifierMixin, BaseEstimator):
 
         df_with_no_class = df.drop('class', axis=1)
 
-
-        classes = get_attribute_value_space('class', df)
-        tot_entropy = E(df, classes, 'class')
-        # get dataframe column names
-        A = list(df.columns)
-        # remove class column
-        A.remove('class')
+        # classes = get_attribute_value_space('class', df)
 
         if self.T == 1:
             my_dict = {col: list(df[col]) for col in df.columns}
             tree = mine_c45(my_dict, 'class')  # DecisionTreeID3()  #
+            # tot_entropy = E(df, classes, 'class')
+            # get dataframe column names
+            # A = list(df.columns)
+            # remove class column
+            # A.remove('class')
+
             # tree = ID3(tot_entropy, df, A, classes, 0, 'class')
             # tree.fit(df_with_no_class, df.iloc[:, -1])  # df['class'])
             self.inner_clf_ = tree
-            ruleset = tree_to_my_rules(tree) #extract_rules_from_id3(tree)  #tree_to_rules(tree)
+            # ruleset = extract_my_rules_from_id3(tree)
+            # ruleset = get_all_paths(tree)
+            ruleset = tree_to_my_rules(tree)  # extract_rules_from_id3(tree)  #tree_to_rules(tree)
             self.ruleset_ = ruleset
 
         else:
@@ -118,8 +122,14 @@ class ID3Classifier(ClassifierMixin, BaseEstimator):
                 # permute the df
                 # we use bootstrap to have a different dataset for each classifier
                 # hoping that the rules will be different enough
-                perm_df = df.sample(frac=1, random_state=t, replace=True)
+                perm_df = df.sample(frac=1, random_state=t, replace=True).copy()
                 my_dict = {col: list(perm_df[col]) for col in df.columns}
+
+                # tot_entropy = E(perm_df, classes, 'class')
+                # get dataframe column names
+                # A = list(perm_df.columns)
+                # remove class column
+                # A.remove('class')
 
                 # create a new classifier
                 # tree = ID3(tot_entropy, perm_df, A, classes, 0, 'class')  #random_state=starting_seed * self.T + t)
@@ -127,6 +137,7 @@ class ID3Classifier(ClassifierMixin, BaseEstimator):
                 # tree.fit(df_with_no_class, df['class'])
                 self.classifiers_.append(tree)
                 ruleset = tree_to_my_rules(tree)
+                # ruleset = extract_my_rules_from_id3(tree)
                 self.rulesets_.append(ruleset)
             self.counter_ = alpha_representation(self.rulesets_)
 
@@ -220,7 +231,6 @@ def get_subtables(t, col):
 import math
 
 
-
 def freq(table, col, v):
     """ Returns counts of variant _v_
         in column _col_ of table _table_.
@@ -271,15 +281,17 @@ def mine_c45(table, result):
     for subt in get_subtables(table, col):
         v = subt[col][0]
         if is_mono(subt[result]):
-            tree.append(['%s=%s' % (col, v),
-                         '%s=%s' % (result, subt[result][0])])
+            tree.append(['%s=%s' % (col, v),  # was '%s=%s' %
+                         '%s=%s' % (result, subt[result][0])])  # also here
         else:
             del subt[col]
-            tree.append(['%s=%s' % (col, v)] + mine_c45(subt, result))
+            tree.append(['%s=%s' % (col, v)] + mine_c45(subt, result))  # also here
     return tree
+
 
 def tree_to_rules(tree):
     return formalize_rules(__tree_to_rules(tree))
+
 
 def tree_to_my_rules(tree):
     rulelist = __tree_to_rules(tree)
@@ -296,20 +308,63 @@ def tree_to_my_rules(tree):
             if attrindex != 'class':
                 attrindex = int(attrindex)
 
-            # convert val to int if possible
-            try:
-                val = int(val)
-            except ValueError:
-                pass
+            # convert val to str
+            val = str(val)
 
-            if attrindex == 'class' and val == 0:
+            if attrindex == 'class' and val == '0':
                 continue
-            if attrindex == 'class' and val == 1:
+            if attrindex == 'class' and val == '1':
                 myrule = Rule(myconstraints)
                 myruleset.append(myrule)
             else:
                 myconstraints[attrindex] = DiscreteConstraint(index=attrindex, value=val)
     return myruleset
+
+
+def convert_tree_to_my_rules(tree):
+    # visit the tree and convert it to a list of rules
+    pathlist = get_all_paths(tree)
+
+
+def get_all_paths(tree, curr_path=None):
+    if curr_path is None:
+        curr_path = []
+    if isinstance(tree, tuple):
+        if tree[1] == 0:
+            return []
+        else:
+            return curr_path
+    if isinstance(tree, list):
+        paths = []
+        for node in tree:
+            if isinstance(node, tuple):
+                paths.append(curr_path + [node])
+            else:
+                paths.extend(get_all_paths(node, curr_path + [node]))
+        return paths
+
+
+def get_all_paths2(tree):
+    all_paths = []
+
+    if isinstance(tree, tuple):
+        # this is a leaf
+        if tree[1] == 1:
+            return [tree[0]]
+        else:
+            # dont consider negative rules
+            return []
+
+    constraint = tree[0]
+    subtree = tree[1]
+
+    for node in subtree:
+        # this is a subtree
+        paths = get_all_paths(node)
+        for path in paths:
+            path.insert(0, constraint)
+        all_paths.extend(paths)
+    return all_paths
 
 def __tree_to_rules(tree, rule=''):
     rules = []
@@ -322,6 +377,7 @@ def __tree_to_rules(tree, rule=''):
         return rules
     return [rule]
 
+
 def validate_table(table):
     assert isinstance(table, dict)
     for k, v in table.items():
@@ -329,14 +385,6 @@ def validate_table(table):
         assert isinstance(k, str)
         assert len(v) == len(table.values()[0])
         for i in v: assert i
-
-
-
-
-
-
-
-
 
 
 ####################### no
@@ -542,13 +590,13 @@ def ID3(total_entropy, S, A, classes, level, column_classes_label):
     if total_entropy == 0:
         return Leaf(label=S[column_classes_label].values[0], level=level)
 
-    print('Total Entropy at level ' + str(level) + ': ', str(total_entropy) + '\n')
+    # print('Total Entropy at level ' + str(level) + ': ', str(total_entropy) + '\n')
     max_gain = np.inf
     t = tuple()
     # Find best attribute
     for a in A:
         a_gain = G(total_entropy, a, S, classes, column_classes_label)
-        print(str(a) + '[ Information Gain: ', str(a_gain) + ' ]')
+        # print(str(a) + '[ Information Gain: ', str(a_gain) + ' ]')
         if (a_gain > max_gain) or (max_gain == np.inf):
             max_gain = a_gain
             t = (a, a_gain)
@@ -557,8 +605,8 @@ def ID3(total_entropy, S, A, classes, level, column_classes_label):
     T = InnerNode(label=best_attribute, level=level, information_gain=t[1])
 
     ### Printing information
-    print('\nBest Attribute:', T)
-    print('\n-----------------------------------------\n')
+    # print('\nBest Attribute:', T)
+    # print('\n-----------------------------------------\n')
     ###
 
     A.remove(best_attribute)
@@ -574,8 +622,8 @@ def test_ID3(df, A, column_classes_label):
     classes = get_attribute_value_space(column_classes_label, df)
     tot_entropy = E(df, classes, column_classes_label)
     Tree = ID3(tot_entropy, df, A, classes, 0, column_classes_label)
-    print('Decision Tree representation\n')
-    print(Tree)
+    #print('Decision Tree representation\n')
+    # print(Tree)
 
 
 def extract_rules_from_id3(tree, rules, rule):
@@ -586,3 +634,18 @@ def extract_rules_from_id3(tree, rules, rule):
         new_rule = rule.copy()
         new_rule.append((tree.label, k))
         extract_rules_from_id3(tree.subtrees[k], rules, new_rule)
+
+def extract_my_rules_from_id3(tree, curr_path=None):
+    if curr_path is None:
+        curr_path = dict()
+    if isinstance(tree, Leaf):
+        if tree.label == 1:
+            return [Rule(curr_path)]
+        else:
+            return []
+    rules = []
+    for k in tree.subtrees.keys():
+        new_path = curr_path.copy()
+        new_path[tree.label] = DiscreteConstraint(index=tree.label, value=k)
+        rules += extract_my_rules_from_id3(tree.subtrees[k], new_path)
+    return rules

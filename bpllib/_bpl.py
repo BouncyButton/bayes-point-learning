@@ -138,7 +138,7 @@ class Rule:
         return sum(len(c) for c in self.constraints.values())
 
     def __eq__(self, other):
-        return self.constraints == other.constraints
+        return tuple(sorted(self.constraints.items())) == tuple(sorted(other.constraints.items()))
 
     def __hash__(self):
         return hash(tuple(sorted(self.constraints.items())))
