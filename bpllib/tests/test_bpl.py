@@ -2,7 +2,7 @@ import pytest
 from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 
-from bpllib import get_dataset, BplClassifier
+from bpllib import get_dataset, FindRsClassifier
 
 test_datasets = [  # 'CAR',
     'TTT',
@@ -17,7 +17,7 @@ def data():
 
 
 def test_template_estimator(data):
-    est = BplClassifier()
+    est = FindRsClassifier()
 
     for name, (X, y) in data:
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=0)
@@ -28,7 +28,7 @@ def test_template_estimator(data):
 
 def test_template_estimator_bo(data):
     for name, (X, y) in data:
-        est = BplClassifier(T=3, strategy='bo')
+        est = FindRsClassifier(T=3, strategy='bo')
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=0)
         est.fit(X_train, y_train, pool_size=1)
@@ -38,7 +38,7 @@ def test_template_estimator_bo(data):
 
 def test_template_estimator_bp(data):
     for name, (X, y) in data:
-        est = BplClassifier(T=3, strategy='bp')
+        est = FindRsClassifier(T=3, strategy='bp')
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=0)
         est.fit(X_train, y_train)

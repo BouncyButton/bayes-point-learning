@@ -72,10 +72,12 @@ def _split_X_y(df, positive_label=None, target_feature='class'):
     return df.drop(target_feature, axis=1), df[target_feature] == positive_label
 
 
-def _get_data(url, names, positive_label, target_feature='class', sep=',', drop_names=None, url_test=None, name_in_zip=None):
+def _get_data(url, names, positive_label, target_feature='class', sep=',', drop_names=None, url_test=None,
+              name_in_zip=None):
     dataset = _read_and_create(url, names, sep=sep, drop_names=drop_names, url_test=url_test, name_in_zip=name_in_zip)
     X, y = _split_X_y(dataset, positive_label, target_feature=target_feature)
     assert y.sum() != 0
+    # count classes
 
     return X, y
 
@@ -159,7 +161,33 @@ def get_dataset(dataset_name='TTT'):
             positive_label='1'
         )
 
+    elif dataset_name == 'NURSERY':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/nursery/nursery.data',
+            names=['parents', 'has_nurs', 'form', 'children', 'housing', 'finance', 'social', 'health', 'class'],
+            positive_label='not_recom'
+        )
+        y = 1 - y
+        # rules found are X[7] == recommended and x[7] == priority, this means that health is very correlated to class
+        # and should be removed (otherwise the problem is trivial)
 
+    elif dataset_name == 'PRIMARY':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/primary-tumor/primary-tumor.data',
+            names=['class', 'age', 'sex', 'histologic-type', 'degree-of-diffe',
+                     'bone', 'bone-marrow', 'lung', 'pleura', 'peritoneum', 'liver', 'brain', 'skin', 'neck', 'supraclavicular',
+                        'axillar', 'mediastinum', 'abdominal'],
+            positive_label=1
+        )  # check the most frequent class
+
+    elif dataset_name == 'LYMPHOGRAPHY':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/lymphography/lymphography.data',
+            names=['class', 'lymphatics', 'block-of-afferent', 'bl. of lymph. c', 'bl. of lymph. s', 'by pass', 'extravasates',
+                   'regeneration of', 'early uptake in', 'lym.nodes dimin', 'lym.nodes enlar', 'changes in lym.', 'defect in node',
+                   'changes in node', 'changes in stru', 'special forms', 'dislocation of', 'exclusion of no', 'no. of nodes in'],
+            positive_label=2
+        )
 
     elif dataset_name == 'VOTE':
         X, y = _get_data(

@@ -93,7 +93,6 @@ class ID3Classifier(ClassifierMixin, BaseEstimator):
 
         df_with_no_class = df.drop('class', axis=1)
 
-        self.rulesets_ = []
 
         classes = get_attribute_value_space('class', df)
         tot_entropy = E(df, classes, 'class')
@@ -108,14 +107,18 @@ class ID3Classifier(ClassifierMixin, BaseEstimator):
             # tree = ID3(tot_entropy, df, A, classes, 0, 'class')
             # tree.fit(df_with_no_class, df.iloc[:, -1])  # df['class'])
             self.inner_clf_ = tree
-            ruleset = tree_to_rules(tree) #extract_rules_from_id3(tree)  #tree_to_rules(tree)
+            ruleset = tree_to_my_rules(tree) #extract_rules_from_id3(tree)  #tree_to_rules(tree)
             self.ruleset_ = ruleset
 
         else:
+            self.rulesets_ = []
+
             self.classifiers_ = []
             for t in range(self.T):
                 # permute the df
-                perm_df = df.sample(frac=1, random_state=t)
+                # we use bootstrap to have a different dataset for each classifier
+                # hoping that the rules will be different enough
+                perm_df = df.sample(frac=1, random_state=t, replace=True)
                 my_dict = {col: list(perm_df[col]) for col in df.columns}
 
                 # create a new classifier

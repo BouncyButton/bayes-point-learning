@@ -4,7 +4,7 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 
-from bpllib import get_dataset, BplClassifier
+from bpllib import get_dataset, FindRsClassifier
 from bpllib._bp import best_k_rules
 from bpllib._bpl import Rule, DiscreteConstraint
 
@@ -25,11 +25,11 @@ def bpl_estimator(data):
         # X = enc.fit_transform(X).toarray().astype(int)
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=0)
-        est = BplClassifier(T=1)
+        est = FindRsClassifier(T=1)
         est.fit(X_train, y_train)
         f1_base = f1_score(y_test, est.predict(X_test))
         print('base: (T=1)', f1_base)
-        est = BplClassifier(T=20)
+        est = FindRsClassifier(T=20)
         est.fit(X_train, y_train)
 
         y_pred_bo = est.predict(X_test, strategy='bo')

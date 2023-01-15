@@ -4,12 +4,18 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 
-from bpllib import get_dataset, BplClassifier
+from bpllib import get_dataset, FindRsClassifier
 from bpllib._bp import best_k_rules
 from bpllib._bpl import Rule, DiscreteConstraint
 from bpllib._id3 import ID3Classifier
 
-test_datasets = ['CAR']
+test_datasets = [# 'TTT',
+                # 'CAR',
+                 # 'MUSH',
+                 'KR-VS-KP',
+                 'HIV',
+                 'BREAST'
+                 ]
 
 
 # @pytest.fixture
@@ -30,7 +36,7 @@ def id3_estimator(data):
         est.fit(X_train, y_train)
         f1_base = f1_score(y_test, est.predict(X_test))
         print('base: (T=1)', f1_base)
-        est = ID3Classifier(T=20)
+        est = ID3Classifier(T=100)
         est.fit(X_train, y_train)
 
         y_pred_bo = est.predict(X_test, strategy='bo')

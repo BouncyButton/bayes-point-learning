@@ -1,7 +1,7 @@
 from ._template import TemplateEstimator
 from ._template import TemplateClassifier
 from ._template import TemplateTransformer
-from ._bpl import BplClassifier
+from ._bpl import FindRsClassifier
 # import pyximport; pyximport.install()
 # from ._bpl_v2 import BplClassifierV2
 # from ._bpl_v5 import BplClassifierV5
@@ -13,7 +13,7 @@ from ._version import __version__
 from ._aq import AqClassifier
 
 __all__ = ['TemplateEstimator', 'TemplateClassifier', 'TemplateTransformer',
-           'BplClassifier',
+           'FindRsClassifier',
            'AqClassifier',
            'get_dataset',
            'BplClassifierOptimization',

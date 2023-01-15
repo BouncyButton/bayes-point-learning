@@ -343,7 +343,7 @@ class OrdinalConstraint(Constraint):
                                  index=self.index)
 
 
-class BplClassifier(ClassifierMixin, BaseEstimator):
+class FindRsClassifier(ClassifierMixin, BaseEstimator):
     """ A classifier which implements Find-RS...
 
     For more information regarding how to build your own classifier, read more
@@ -415,22 +415,22 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
 
         if len(self.classes_) == 1:
             self.target_class_ = target_class
-            self.rules_, self.bins_ = BplClassifier.find_rs(X, y, target_class)
+            self.rules_, self.bins_ = FindRsClassifier.find_rs(X, y, target_class)
 
         if len(self.classes_) == 2:
             self.target_class_ = target_class
             self.other_class_ = (set(self.classes_) - {self.target_class_}).pop() if len(self.classes_) > 1 else None
 
             if self.T == 1:
-                self.rules_, self.bins_ = BplClassifier.find_rs(X, y, target_class)
+                self.rules_, self.bins_ = FindRsClassifier.find_rs(X, y, target_class)
             else:
-                outputs = BplClassifier.find_rs_with_multiple_runs(X, y, target_class, T=self.T, pool_size=pool_size, starting_seed=starting_seed)
+                outputs = FindRsClassifier.find_rs_with_multiple_runs(X, y, target_class, T=self.T, pool_size=pool_size, starting_seed=starting_seed)
                 self.rulesets_ = [D for D, B in outputs]
                 self.counter_ = alpha_representation(self.rulesets_)
 
 
         else:
-            self.ovr_ = OneVsRestClassifier(BplClassifier(tol=self.tol, T=self.T)).fit(X, y)
+            self.ovr_ = OneVsRestClassifier(FindRsClassifier(tol=self.tol, T=self.T)).fit(X, y)
 
         # suggest k rules using best k
         best_acc = 0
@@ -538,7 +538,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
                         train_n = np.delete(train_n, not_covered[0] + 1, axis=0)
 
             train_p = incompatibles
-        D, B = BplClassifier._prune(D, B)
+        D, B = FindRsClassifier._prune(D, B)
         return D, B
 
     @staticmethod
@@ -577,7 +577,7 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         X_perm = X[random_indexes].copy()
         y_perm = y[random_indexes].copy()
 
-        Dt, Bt = BplClassifier.find_rs(X_perm, y_perm, target_class, tol=tol)
+        Dt, Bt = FindRsClassifier.find_rs(X_perm, y_perm, target_class, tol=tol)
 
         return Dt, Bt
 
@@ -586,9 +586,9 @@ class BplClassifier(ClassifierMixin, BaseEstimator):
         if pool_size > 1:
             # TODO why doesn't it work?
             with Pool(pool_size) as p:
-                outputs = p.map(partial(BplClassifier._find_rs_iteration, X, y, target_class, tol=tol, starting_seed=starting_seed), range(T))
+                outputs = p.map(partial(FindRsClassifier._find_rs_iteration, X, y, target_class, tol=tol, starting_seed=starting_seed), range(T))
         else:
-            outputs = [BplClassifier._find_rs_iteration(X, y, target_class, t, tol=tol, starting_seed=starting_seed) for t in range(T)]
+            outputs = [FindRsClassifier._find_rs_iteration(X, y, target_class, t, tol=tol, starting_seed=starting_seed) for t in range(T)]
         return outputs
 
     def predict_proba(self, X):

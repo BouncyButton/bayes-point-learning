@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 import csv
 import sys
-from bpllib import get_dataset, BplClassifierOptimization, BplClassifier, BplClassifierSplit
+from bpllib import get_dataset, BplClassifierOptimization, FindRsClassifier, BplClassifierSplit
 
 test_datasets = [
     # 'CAR',
