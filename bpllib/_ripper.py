@@ -10,7 +10,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 # that is present in the wittgenstein lib
 import pandas as pd
 from sklearn.base import ClassifierMixin, BaseEstimator
-from sklearn.utils import check_X_y
+from sklearn.utils import check_X_y, check_array
 from sklearn.utils.multiclass import unique_labels
 from wittgenstein import RIPPER
 
@@ -24,7 +24,7 @@ class RIPPERClassifier(ClassifierMixin, BaseEstimator):
 
     def fit(self, X, y, target_class=1, find_best_k=False, starting_seed=0):
         self.target_class_ = target_class
-        X, y = check_X_y(X, y, dtype=[str, int])
+        X, y = check_X_y(X, y, dtype=None)
         self.classes_ = unique_labels(y)
         if len(self.classes_) == 2:
             self.other_class_ = (set(self.classes_) - {target_class}).pop()
@@ -38,8 +38,16 @@ class RIPPERClassifier(ClassifierMixin, BaseEstimator):
         self.rulesets_ = []
 
         if self.T == 1:
-            self.inner_clf_ = RIPPER()
+            self.inner_clf_ = RIPPER(random_state=starting_seed)
             self.inner_clf_.fit(df, class_feat='class', pos_class=target_class)
+            our_ruleset = []
+            for rule in self.inner_clf_.ruleset_:
+                constraints = dict()
+                for cond in rule.conds:
+                    constraints[cond.feature] = DiscreteConstraint(index=cond.feature, value=cond.val)
+                our_rule = Rule(constraints)
+                our_ruleset.append(our_rule)
+            self.ruleset_ = our_ruleset
 
         else:
             self.classifiers_ = []
@@ -85,10 +93,11 @@ class RIPPERClassifier(ClassifierMixin, BaseEstimator):
         return self
 
     def predict(self, X, strategy='bo', n_rules=None):
+        X = check_array(X, dtype=None)
         if self.T == 1:
             if isinstance(X, pd.DataFrame):
                 X = X.values
-            return self.inner_clf_.predict(X)
+            return np.array([1 if any([rule.covers(x) for rule in self.ruleset_]) else 0 for x in X])
 
         if strategy == 'bo' or strategy == 'bp' or strategy == 'best-k':
             if isinstance(X, pd.DataFrame):

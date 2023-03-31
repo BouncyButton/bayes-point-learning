@@ -5,8 +5,9 @@ import math
 import numpy as np
 import pandas as pd
 from sklearn.base import ClassifierMixin, BaseEstimator
-from sklearn.utils import check_X_y
+from sklearn.utils import check_X_y, check_array
 from sklearn.utils.multiclass import unique_labels
+from tqdm import tqdm
 
 from bpllib._bp import alpha_representation, callable_rules_bp, callable_rules_bo
 from bpllib._bpl import Rule, DiscreteConstraint
@@ -24,10 +25,14 @@ def extract_ruleset(tree):
 
 
 class ID3Classifier(ClassifierMixin, BaseEstimator):
-    def __init__(self, T=1):
+    def __init__(self, T=1, threshold_acc=0.99):
         self.T = T
+        self.threshold_acc = threshold_acc
 
     def predict(self, X, strategy='bo', n_rules=None):
+        # Input validation
+        X = check_array(X, dtype=None)
+
         if self.T == 1:
             if isinstance(X, pd.DataFrame):
                 X = X.values
@@ -40,6 +45,8 @@ class ID3Classifier(ClassifierMixin, BaseEstimator):
             X = X.astype(str)
 
             if strategy == 'best-k':
+                if n_rules is None and not hasattr(self, 'suggested_k_'):
+                    raise ValueError('n_rules must be specified')
                 most_freq_rules = self.counter_.most_common(n_rules)
                 return np.array([self.predict_one(x, most_freq_rules=most_freq_rules,
                                                   strategy=strategy, n_rules=n_rules) for x in X])
@@ -82,7 +89,7 @@ class ID3Classifier(ClassifierMixin, BaseEstimator):
 
     def fit(self, X, y, target_class=1, find_best_k=False, starting_seed=0):
         self.target_class_ = target_class
-        X, y = check_X_y(X, y, dtype=[str, int])
+        X, y = check_X_y(X, y, dtype=None)  # [str, int])
         self.classes_ = unique_labels(y)
         if len(self.classes_) == 2:
             self.other_class_ = (set(self.classes_) - {target_class}).pop()
@@ -118,7 +125,7 @@ class ID3Classifier(ClassifierMixin, BaseEstimator):
             self.rulesets_ = []
 
             self.classifiers_ = []
-            for t in range(self.T):
+            for t in tqdm(range(self.T)):
                 # permute the df
                 # we use bootstrap to have a different dataset for each classifier
                 # hoping that the rules will be different enough
@@ -140,6 +147,19 @@ class ID3Classifier(ClassifierMixin, BaseEstimator):
                 # ruleset = extract_my_rules_from_id3(tree)
                 self.rulesets_.append(ruleset)
             self.counter_ = alpha_representation(self.rulesets_)
+
+
+            # TODO complete
+            # suggest k rules using best k
+            if find_best_k:
+                bp_acc = (self.predict(X, strategy='bp') == y).mean()
+                self.suggested_k_ = None
+
+                for k in range(1, len(self.counter_)):
+                    new_acc = (self.predict(X, 'best-k', n_rules=k) == y).mean()
+                    if new_acc >= self.threshold_acc * bp_acc:
+                        self.suggested_k_ = k
+                        break
 
         return self
 

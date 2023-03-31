@@ -175,18 +175,35 @@ def get_dataset(dataset_name='TTT'):
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/primary-tumor/primary-tumor.data',
             names=['class', 'age', 'sex', 'histologic-type', 'degree-of-diffe',
-                     'bone', 'bone-marrow', 'lung', 'pleura', 'peritoneum', 'liver', 'brain', 'skin', 'neck', 'supraclavicular',
-                        'axillar', 'mediastinum', 'abdominal'],
+                   'bone', 'bone-marrow', 'lung', 'pleura', 'peritoneum', 'liver', 'brain', 'skin', 'neck',
+                   'supraclavicular',
+                   'axillar', 'mediastinum', 'abdominal'],
             positive_label=1
         )  # check the most frequent class
 
     elif dataset_name == 'LYMPHOGRAPHY':
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/lymphography/lymphography.data',
-            names=['class', 'lymphatics', 'block-of-afferent', 'bl. of lymph. c', 'bl. of lymph. s', 'by pass', 'extravasates',
-                   'regeneration of', 'early uptake in', 'lym.nodes dimin', 'lym.nodes enlar', 'changes in lym.', 'defect in node',
-                   'changes in node', 'changes in stru', 'special forms', 'dislocation of', 'exclusion of no', 'no. of nodes in'],
+            names=['class', 'lymphatics', 'block-of-afferent', 'bl. of lymph. c', 'bl. of lymph. s', 'by pass',
+                   'extravasates',
+                   'regeneration of', 'early uptake in', 'lym.nodes dimin', 'lym.nodes enlar', 'changes in lym.',
+                   'defect in node',
+                   'changes in node', 'changes in stru', 'special forms', 'dislocation of', 'exclusion of no',
+                   'no. of nodes in'],
             positive_label=2
+        )
+
+    elif dataset_name == 'SOYBEAN':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/soybean/soybean-large.data',
+            names=['class', 'date', 'plant-stand', 'precip', 'temp', 'hail', 'crop-hist', 'area-damaged', 'severity',
+                   'seed-tmt',
+                   'germination', 'plant-growth', 'leaves', 'leafspots-halo', 'leafspots-marg', 'leafspot-size',
+                   'leaf-shread', 'leaf-malf', 'leaf-mild', 'stem', 'lodging', 'stem-cankers', 'canker-lesion',
+                   'fruiting-bodies',
+                   'external decay', 'mycelium', 'int-discolor', 'sclerotia', 'fruit-pods', 'fruit spots', 'seed',
+                   'mold-growth', 'seed-discolor', 'seed-size', 'shriveling', 'roots'],
+            positive_label='frog-eye-leaf-spot'
         )
 
     elif dataset_name == 'VOTE':
@@ -282,7 +299,6 @@ def get_dataset(dataset_name='TTT'):
                       [3.31, 0.01], [3.32, 3.33], [4.41, -1.11], [0.02, -1.12]])
         y = np.array([1] * 4 + [0] * 4)
 
-
     elif dataset_name == 'TOY2':
         X = np.array([['a', 'b'], ['b', 'b'], ['c', 'b'], ['d', 'b']], dtype=object)
         y = np.array([['a', 'c'], ['b', 'c'], ['c', 'c'], ['d', 'c']], dtype=object)
@@ -303,5 +319,6 @@ def get_dataset(dataset_name='TTT'):
 
     else:
         raise NotImplementedError(f'The dataset {dataset_name} was not found.')
+
 
     return X, y

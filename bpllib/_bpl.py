@@ -23,6 +23,7 @@ class Rule:
 
     def __init__(self, constraints: dict):
         self.constraints = constraints  # was set()
+        self.columns = None
 
     def __mul__(self, other):
         '''
@@ -142,6 +143,14 @@ class Rule:
 
     def __hash__(self):
         return hash(tuple(sorted(self.constraints.items())))
+
+    def str_with_column_names(self, columns):
+        self.columns = columns
+        reprs = []
+        for c in self.constraints.values():
+            column = columns[c.index]
+            reprs.append(f"{column}={c.value}")
+        return " ^ ".join(reprs)
 
 
 class RuleByExample(Rule):
@@ -278,7 +287,7 @@ class DiscreteConstraint(Constraint):
         return None
 
     def __repr__(self):
-        return f'X[{self.index}] == {self.value}'
+        return f'X[{self.index}] == {self.value.__repr__()}'
 
 
 class DiscreteOrConstraint(Constraint):
@@ -313,6 +322,7 @@ class DiscreteOrConstraint(Constraint):
 
     def __hash__(self):
         return hash((self.index, tuple(sorted(self.values))))
+
 
 class OrdinalConstraint(Constraint):
     '''
@@ -364,10 +374,12 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
         The classes seen at :meth:`fit`.
     """
 
-    def __init__(self, tol=0, T=1, strategy=None):
+    def __init__(self, tol=0, T=1, strategy=None, threshold_acc=0.99):
+        self.suggested_k_ = None
         self.tol = tol
         self.T = T
         self.strategy = strategy
+        self.threshold_acc = threshold_acc
 
     def alpha_representation(self):
         from collections import Counter
@@ -385,7 +397,7 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
     def _more_tags(self):
         return {'X_types': ['2darray', 'string'], 'requires_y': True}
 
-    def fit(self, X, y, target_class=None, pool_size=1, find_best_k=False, starting_seed=0):
+    def fit(self, X, y, target_class=None, pool_size=1, find_best_k=False, starting_seed=0, optimization=True):
         """A reference implementation of a fitting function for a classifier.
 
         Parameters
@@ -422,9 +434,10 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
             self.other_class_ = (set(self.classes_) - {self.target_class_}).pop() if len(self.classes_) > 1 else None
 
             if self.T == 1:
-                self.rules_, self.bins_ = FindRsClassifier.find_rs(X, y, target_class)
+                self.rules_, self.bins_ = FindRsClassifier.find_rs(X, y, target_class, optimization=optimization)
             else:
-                outputs = FindRsClassifier.find_rs_with_multiple_runs(X, y, target_class, T=self.T, pool_size=pool_size, starting_seed=starting_seed)
+                outputs = FindRsClassifier.find_rs_with_multiple_runs(X, y, target_class, T=self.T, pool_size=pool_size,
+                                                                      starting_seed=starting_seed)
                 self.rulesets_ = [D for D, B in outputs]
                 self.counter_ = alpha_representation(self.rulesets_)
 
@@ -433,24 +446,34 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
             self.ovr_ = OneVsRestClassifier(FindRsClassifier(tol=self.tol, T=self.T)).fit(X, y)
 
         # suggest k rules using best k
-        best_acc = 0
-        MAX_PATIENCE = 10
-        patience = MAX_PATIENCE
-
-        self.suggested_k_ = 0
         if find_best_k:
-            for k in range(1, len(self.counter_)):
+            bp_acc = (self.predict(X, strategy='bp') == y).mean()
+            self.suggested_k_ = None
 
-                if patience == 0:
-                    break
-                most_freq_rules = self.counter_.most_common(k)
-                y_train_pred = [self.predict_one(x, strategy='best-k', n_rules=k, most_freq_rules=most_freq_rules)
-                                for x in X]
-                acc = np.mean(y_train_pred == y)
-                if acc > best_acc:
+            for k in range(1, len(self.counter_)):
+                new_acc = (self.predict(X, 'best-k', n_rules=k) == y).mean()
+                if new_acc >= self.threshold_acc * bp_acc:
                     self.suggested_k_ = k
-                else:
-                    patience -= 1
+                    break
+
+        # best_acc = 0
+        # MAX_PATIENCE = 10
+        # patience = MAX_PATIENCE
+        #
+        # self.suggested_k_ = 0
+        # if find_best_k:
+        #     for k in range(1, len(self.counter_)):
+        #
+        #         if patience == 0:
+        #             break
+        #         most_freq_rules = self.counter_.most_common(k)
+        #         y_train_pred = [self.predict_one(x, strategy='best-k', n_rules=k, most_freq_rules=most_freq_rules)
+        #                         for x in X]
+        #         acc = np.mean(y_train_pred == y)
+        #         if acc > best_acc:
+        #             self.suggested_k_ = k
+        #         else:
+        #             patience -= 1
 
         # Return the classifier
         return self
@@ -487,7 +510,8 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
 
         if len(self.classes_) == 2 and strategy is None:
             return np.array(
-                [self.target_class_ if (any([rule.covers(row) for rule in self.rules_])) else self.other_class_ for row in
+                [self.target_class_ if (any([rule.covers(row) for rule in self.rules_])) else self.other_class_ for row
+                 in
                  X])
 
         if len(self.classes_) == 2 and strategy == 'bo':
@@ -571,9 +595,9 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
 
     @staticmethod
     def _find_rs_iteration(X, y, target_class, t, tol=0, starting_seed=0):
-        np.random.seed(t+starting_seed)
+        np.random.seed(t + starting_seed)
 
-        random_indexes = np.random.RandomState(seed=t+starting_seed).permutation(len(X))
+        random_indexes = np.random.RandomState(seed=t + starting_seed).permutation(len(X))
         X_perm = X[random_indexes].copy()
         y_perm = y[random_indexes].copy()
 
@@ -586,9 +610,11 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
         if pool_size > 1:
             # TODO why doesn't it work?
             with Pool(pool_size) as p:
-                outputs = p.map(partial(FindRsClassifier._find_rs_iteration, X, y, target_class, tol=tol, starting_seed=starting_seed), range(T))
+                outputs = p.map(partial(FindRsClassifier._find_rs_iteration, X, y, target_class, tol=tol,
+                                        starting_seed=starting_seed), range(T))
         else:
-            outputs = [FindRsClassifier._find_rs_iteration(X, y, target_class, t, tol=tol, starting_seed=starting_seed) for t in range(T)]
+            outputs = [FindRsClassifier._find_rs_iteration(X, y, target_class, t, tol=tol, starting_seed=starting_seed)
+                       for t in tqdm.tqdm(range(T))]
         return outputs
 
     def predict_proba(self, X):
@@ -628,4 +654,3 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
                                            self.other_class_, self.T)
         else:
             raise NotImplementedError(f'strategy {strategy} not implemented')
-

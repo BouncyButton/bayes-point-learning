@@ -20,6 +20,7 @@ class AqClassifier(ClassifierMixin, BaseEstimator):
         self.maxstar = maxstar
         self.T = T
         self.verbose = verbose
+        self.threshold_acc = 0.99
 
     def _more_tags(self):
         return {'X_types': ['2darray', 'string'], 'requires_y': True}
@@ -36,9 +37,9 @@ class AqClassifier(ClassifierMixin, BaseEstimator):
         cnt = self.alpha_representation()
         return cnt.most_common(k)
 
-    def fit(self, X, y, target_class=1):
+    def fit(self, X, y, target_class=1,find_best_k=False):
         self.target_class_ = target_class
-        X, y = check_X_y(X, y, dtype=[str, int])
+        X, y = check_X_y(X, y, dtype=None)  #[str, int])
         self.classes_ = unique_labels(y)
         if len(self.classes_) == 2:
             self.other_class_ = (set(self.classes_) - {target_class}).pop()
@@ -54,6 +55,17 @@ class AqClassifier(ClassifierMixin, BaseEstimator):
         else:
             self.rulesets_ = self.aq_with_multiple_runs(X, y, target_class, T=self.T, maxstar=self.maxstar)
             self.counter_ = alpha_representation(self.rulesets_)
+
+            if find_best_k:
+                bp_acc = (self.predict(X, strategy='bp') == y).mean()
+                self.suggested_k_ = None
+
+                for k in range(1, len(self.counter_)):
+                    new_acc = (self.predict(X, 'best-k', n_rules=k) == y).mean()
+                    if new_acc >= self.threshold_acc * bp_acc:
+                        self.suggested_k_ = k
+                        break
+
         return self
 
     def aq_with_multiple_runs(self, X, y, target_class, T=1, pool_size=1, maxstar=5):
@@ -63,12 +75,12 @@ class AqClassifier(ClassifierMixin, BaseEstimator):
                                 range(T))
         else:
             outputs = [AQAlgorithm(X[y == target_class], X[y != target_class], maxstar=maxstar, seed=t) for t in
-                       range(T)]
+                       tqdm(range(T))]
         # returns T sets of rules
         return outputs
 
     def predict(self, X, strategy='bo', **kwargs):
-        X = check_array(X, dtype=None)
+        X = check_array(X, dtype=None) #[str, int])
         return np.array([self.predict_one(x, strategy=strategy, **kwargs) for x in X])
 
     def predict_one(self, x, strategy='bo', **kwargs):
@@ -105,7 +117,9 @@ def AQAlgorithm(P, N, maxstar=5, seed=None, verbose=0):
         N = N[random_indexes_N].copy()
 
     # get unique values for each feature
-    unique_values = [set(u) for u in np.unique(np.concatenate((P, N), axis=0), axis=0).T]
+    # unique_values = [set(u) for u in np.unique(list(np.concatenate((P, N), axis=0)), axis=0).T]
+    unique_values = [set(u) for u in np.concatenate((P,N), axis=0).T]
+
 
     P1 = P
     R = set()  # rule set
