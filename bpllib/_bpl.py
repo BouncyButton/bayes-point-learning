@@ -1,6 +1,7 @@
 """
 This is a module to be used as a reference for building other modules
 """
+import warnings
 from functools import partial
 from multiprocessing import Pool
 
@@ -375,11 +376,12 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
     """
 
     def __init__(self, tol=0, T=1, strategy=None, threshold_acc=0.99):
-        self.suggested_k_ = None
         self.tol = tol
         self.T = T
         self.strategy = strategy
         self.threshold_acc = threshold_acc
+        if T > 1 and strategy is None:
+            raise ValueError('If T > 1, a strategy must be specified [bo|bp]')
 
     def alpha_representation(self):
         from collections import Counter
@@ -412,9 +414,20 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
         self : object
             Returns self.
         """
+        self.suggested_k_ = None
+
         # Check that X and y have correct shape
         # we accept strings
-        X, y = check_X_y(X, y, dtype=None)  # [str, np.int32, np.int64, float, np.float32, np.float64])
+        if np.any(np.array(X).dtype.kind == 'f'):
+            warnings.warn("FindRsClassifier does not fully support float values yet.")
+            X, y = check_X_y(X, y, dtype=None)
+        # check for strings
+        elif np.any(np.array(X).dtype.kind in ('S', 'U', 'O')):
+            X, y = check_X_y(X, y, dtype=[str])
+
+        else:
+            X, y = check_X_y(X, y, dtype=[np.int32, np.int64])
+
         # Store the classes seen during fit
         self.classes_ = unique_labels(y)
         self.n_features_in_ = X.shape[1]
@@ -496,6 +509,9 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
         # Check is fit had been called
         check_is_fitted(self, ['rules_', 'bins_', 'ovr_', 'rulesets_'], all_or_any=any)
 
+        if strategy is None:
+            strategy = self.strategy
+
         # Input validation
         X = check_array(X, dtype=None)
         if self.n_features_in_ != X.shape[1]:
@@ -510,9 +526,8 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
 
         if len(self.classes_) == 2 and strategy is None:
             return np.array(
-                [self.target_class_ if (any([rule.covers(row) for rule in self.rules_])) else self.other_class_ for row
-                 in
-                 X])
+                [self.target_class_ if (any([rule.covers(row) for rule in self.rules_])) else self.other_class_
+                 for row in X])
 
         if len(self.classes_) == 2 and strategy == 'bo':
             rules_bo = callable_rules_bo(self.rulesets_)
@@ -619,7 +634,7 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
 
     def predict_proba(self, X):
         # Check is fit had been called
-        check_is_fitted(self, ['D_', 'B_', 'ovr_'], all_or_any=any)
+        check_is_fitted(self, ['rules_', 'bins_', 'ovr_', 'rulesets_'], all_or_any=any)
 
         if len(self.classes_) > 2:
             return self.ovr_.predict_proba(X)  # how can i remove the warning?

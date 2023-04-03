@@ -6,3 +6,5 @@ matplotlib
 pytest
 setuptools
 tqdm
+wittgenstein
+wget

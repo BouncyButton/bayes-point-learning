@@ -1,46 +1,37 @@
 #####################################
-Quick Start with the project-template
+Quick Start with the bpllib package
 #####################################
 
-This package serves as a skeleton package aiding at developing compatible
-scikit-learn contribution.
+This package provides an implementation of a Bayes Point Classifier.
 
-Creating your own scikit-learn contribution package
+Installation
 ===================================================
 
-1. Download and setup your repository
+
+1. Install from the repository
 -------------------------------------
 
-To create your package, you need to clone the ``project-template`` repository::
+To install this package, run the following command::
 
-    $ git clone https://github.com/scikit-learn-contrib/project-template.git
+    $ pip install git+https://github.com/BouncyButton/bayes-point-learning.git
 
-Before to reinitialize your git repository, you need to make the following
-changes. Replace all occurrences of ``skltemplate`` and ``sklearn-template``
-with the name of you own contribution. You can find all the occurrences using
-the following command::
+1. Clone and install from the repository
+-------------------------------------
 
-    $ git grep skltemplate
-    $ git grep sklearn-template
+To run this package, you need to clone the ``bpllib`` repository::
 
-To remove the history of the template package, you need to remove the `.git`
-directory::
+    $ git clone https://github.com/BouncyButton/bayes-point-learning.git
 
-    $ cd project-template
-    $ rm -rf .git
+To install this package, run the following command, after navigating to the ``bpllib`` directory::
 
-Then, you need to initialize your new git repository::
+    $ pip install -e .
 
-    $ git init
-    $ git add .
-    $ git commit -m 'Initial commit'
+This should automatically install all the dependencies. If needed, you can install them manually::
 
-Finally, you create an online repository on GitHub and push your code online::
+    $ pip install -r requirements.txt
 
-    $ git remote add origin https://github.com/your_remote/your_contribution.git
-    $ git push origin master
 
-2. Develop your own scikit-learn estimators
+2. Development
 -------------------------------------------
 
 .. _check_estimator: http://scikit-learn.org/stable/modules/generated/sklearn.utils.estimator_checks.check_estimator.html#sklearn.utils.estimator_checks.check_estimator
@@ -50,8 +41,8 @@ Finally, you create an online repository on GitHub and push your code online::
 .. _NumPyDoc: https://github.com/numpy/numpydoc
 .. _doctests: https://docs.python.org/3/library/doctest.html
 
-You can modify the source files as you want. However, your custom estimators
-need to pass the check_estimator_ test to be scikit-learn compatible. You can
+We follow the scikit-learn development workflow, as found in the skltemplate repository.
+Hence, estimators need to pass the check_estimator_ test to be scikit-learn compatible. You can
 refer to the :ref:`User Guide <user_guide>` to help you create a compatible
 scikit-learn estimator.
 

@@ -309,12 +309,12 @@ intersphinx_mapping = {
 
 # sphinx-gallery configuration
 sphinx_gallery_conf = {
-    'doc_module': 'skltemplate',
+    'doc_module': 'bpllib',
     'backreferences_dir': os.path.join('generated'),
     'reference_url': {
-        'skltemplate': None}
+        'bpllib': None}
 }
 
 def setup(app):
     # a copy button to copy snippet of code from the documentation
-    app.add_javascript('js/copybutton.js')
+    app.add_js_file('js/copybutton.js')

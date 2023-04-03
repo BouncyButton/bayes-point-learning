@@ -16,9 +16,8 @@ def data():
     return [(name, get_dataset(name)) for name in test_datasets]
 
 
-def bpl_estimator(data):
+def test_bpl_estimator(data):
     assert Rule({1: DiscreteConstraint(index=1, value='a')}) == Rule({1: DiscreteConstraint(index=1, value='a')})
-
 
     for name, (X, y) in data:
         # enc = OneHotEncoder(handle_unknown='ignore')
@@ -47,4 +46,4 @@ def bpl_estimator(data):
 
 
 if __name__ == '__main__':
-    bpl_estimator(data())
+    test_bpl_estimator(data())

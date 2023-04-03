@@ -12,15 +12,15 @@ from bpllib._bp import best_k_rules
 from bpllib._bpl import Rule, DiscreteConstraint
 from bpllib._id3 import ID3Classifier
 
-test_datasets = [  # 'TTT',
-    # 'CAR',
-    # 'MUSH',
-    # 'KR-VS-KP',
-    # 'HIV',
-    'BREAST',
-    # 'VOTE'
-    # 'PRIMARY'
-]
+test_datasets = ['TTT',
+                 # 'CAR',
+                 # 'MUSH',
+                 # 'KR-VS-KP',
+                 # 'HIV',
+                 # 'BREAST',
+                 # 'VOTE'
+                 # 'PRIMARY'
+                 ]
 
 
 def remove_inconsistent_data(X, y):
@@ -44,7 +44,8 @@ def remove_inconsistent_data(X, y):
     y = y.drop(list(inconsistent_indexes))
     return X, y
 
-# @pytest.fixture
+
+@pytest.fixture
 def data():
     datasets = [(name, get_dataset(name)) for name in test_datasets]
     # sort by ascending size
@@ -52,7 +53,7 @@ def data():
     return datasets
 
 
-def id3_estimator(data):
+def test_id3_estimator(data):
     assert Rule({1: DiscreteConstraint(index=1, value='a')}) == Rule({1: DiscreteConstraint(index=1, value='a')})
 
     for name, (X, y) in data:
@@ -91,4 +92,4 @@ def id3_estimator(data):
 
 
 if __name__ == '__main__':
-    id3_estimator(data())
+    test_id3_estimator(data())

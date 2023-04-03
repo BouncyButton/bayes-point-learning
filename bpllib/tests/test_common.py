@@ -12,5 +12,7 @@ from bpllib._bpl import FindRsClassifier
     "estimator",
     [FindRsClassifier()]
 )
+# this requires to handle many cases not yet handled (e.g., continuous variables).
+# what's the best way to do this?
 def test_all_estimators(estimator):
     return check_estimator(estimator)
