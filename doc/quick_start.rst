@@ -15,7 +15,7 @@ To install this package, run the following command::
 
     $ pip install git+https://github.com/BouncyButton/bayes-point-learning.git
 
-1. Clone and install from the repository
+2. Clone and install from the repository
 -------------------------------------
 
 To run this package, you need to clone the ``bpllib`` repository::
@@ -31,7 +31,7 @@ This should automatically install all the dependencies. If needed, you can insta
     $ pip install -r requirements.txt
 
 
-2. Development
+3. Development
 -------------------------------------------
 
 .. _check_estimator: http://scikit-learn.org/stable/modules/generated/sklearn.utils.estimator_checks.check_estimator.html#sklearn.utils.estimator_checks.check_estimator
@@ -59,7 +59,7 @@ In any case, developers should endeavor to adhere to scikit-learn's
   benefits/benchmarks of particular algorithms;
 * efficient code when the need for optimization is supported by benchmarks.
 
-3. Edit the documentation
+4. Edit the documentation
 -------------------------
 
 .. _Sphinx: http://www.sphinx-doc.org/en/stable/
@@ -87,27 +87,17 @@ The documentation is built with the following commands::
     $ cd doc
     $ make html
 
-4. Setup the continuous integration
+5. Setup the continuous integration
 -----------------------------------
 
 The project template already contains configuration files of the continuous
 integration system. Basically, the following systems are set:
 
-* Travis CI is used to test the package in Linux. You need to activate Travis
-  CI for your own repository. Refer to the Travis CI documentation.
-* AppVeyor is used to test the package in Windows. You need to activate
-  AppVeyor for your own repository. Refer to the AppVeyor documentation.
-* Circle CI is used to check if the documentation is generated properly. You
-  need to activate Circle CI for your own repository. Refer to the Circle CI
-  documentation.
-* ReadTheDocs is used to build and host the documentation. You need to activate
-  ReadTheDocs for your own repository. Refer to the ReadTheDocs documentation.
-* CodeCov for tracking the code coverage of the package. You need to activate
+* ReadTheDocs is used to build and host the documentation.
+* (TODO) CodeCov for tracking the code coverage of the package. You need to activate
   CodeCov for you own repository.
-* PEP8Speaks for automatically checking the PEP8 compliance of your project for
-  each Pull Request.
 
-Publish your package
+6. TODO Publish your package
 ====================
 
 .. _PyPi: https://packaging.python.org/tutorials/packaging-projects/
@@ -118,5 +108,5 @@ the associated documentation to be able to upload your packages such that
 it will be installable with ``pip`` and ``conda``. Once published, it will
 be possible to install your package with the following commands::
 
-    $ pip install your-scikit-learn-contribution
-    $ conda install -c conda-forge your-scikit-learn-contribution
+    $ pip install bayes-point-learning
+    $ conda install -c conda-forge bayes-point-learning
