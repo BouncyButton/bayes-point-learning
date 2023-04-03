@@ -10,10 +10,10 @@ The package offers a user-friendly interface to run the Bayes Point estimators o
 
 You can choose between the following estimators:
 
-* `FindRsClassifier`: uses an iterative strategy to build a number of bins that correctly classify the data, attempting to build the most specific rules, while not contradicting existing examples.
-* `RIPPERClassifier`: uses the RIPPER algorithm to create a set of rules.
-* `Id3Classifier`: uses the ID3 algorithm to fit the data, and synthesizes a ruleset by walking each path of the grown tree.
-* `AqClassifier`: uses the AQ algorithm to find a ruleset that is the most general, while not contradicting existing examples.
+* ``FindRsClassifier``: uses an iterative strategy to build a number of bins that correctly classify the data, attempting to build the most specific rules, while not contradicting existing examples.
+* ``RIPPERClassifier``: uses the RIPPER algorithm to create a set of rules.
+* ``Id3Classifier``: uses the ID3 algorithm to fit the data, and synthesizes a ruleset by walking each path of the grown tree.
+* ``AqClassifier``: uses the AQ algorithm to find a ruleset that is the most general, while not contradicting existing examples.
 
 You can import them as follows::
 
@@ -31,25 +31,29 @@ Once imported, you can use them as any other scikit-learn estimator. For example
 
 
 Each classifier in this package can be instanced with a set of parameters.
-For example, you can set the `T` and the `strategy` parameters of the `FindRsClassifier` as follows::
+For example, you can set the ``T`` and the ``strategy`` parameters of the ``FindRsClassifier`` as follows::
 
     >>> clf = FindRsClassifier(T=20, strategy='bp')
 
-Use `strategy` parameter to choose between the following strategies:
+Use ``strategy`` parameter to choose between the following strategies:
 
-* `bp` for the Bayes Point strategy
-* `bo` for the Bayes Optimal strategy
-* `best-k` for selecting the best `k` rules
-* `None` for the default strategy (requires `T` set to `1`)
+* ``bp`` for the Bayes Point strategy
+* ``bo`` for the Bayes Optimal strategy
+* ``best-k`` for selecting the best ``k`` rules
+* ``None`` for the default strategy (requires ``T`` set to ``1``)
 
-Using `T>1` requires more time, as the algorithm will run `T` times.
+Using ``T>1`` requires more time, as the algorithm will run ``T`` times.
+
+The ``bo`` strategy is the least interpretable, since it will yield many (duplicate) rules.
+The ``bp`` strategy is more interpretable, since it will yield a smaller number of rules.
+The ``best-k`` strategy is the most interpretable, since it will yield a number of rules selected by the user.
 
 Fitting
 --------
 
-The `fit` method of each classifier takes as input the dataset `X` and the target `y`. The dataset `X` is a numpy array of shape `(n_samples, n_features)` and the target `y` is a numpy array of shape `(n_samples,)`.
+The ``fit`` method of each classifier takes as input the dataset ``X`` and the target ``y``. The dataset ``X`` is a numpy array of shape ``(n_samples, n_features)`` and the target ``y`` is a numpy array of shape ``(n_samples,)``.
 
-The `fit` method returns the classifier itself.::
+The ``fit`` method returns the classifier itself.::
 
     >>> from bpllib import get_dataset, FindRsClassifier
     >>> from sklearn.model_selection import train_test_split
@@ -61,9 +65,9 @@ The `fit` method returns the classifier itself.::
 Predicting
 ----------
 
-The `predict` method of each classifier takes as input the dataset `X` and returns the predictions `y_pred` of the classifier. The dataset `X` is a numpy array of shape `(n_samples, n_features)` and the predictions `y_pred` is a numpy array of shape `(n_samples,)`.
+The ``predict`` method of each classifier takes as input the dataset ``X`` and returns the predictions ``y_pred`` of the classifier. The dataset ``X`` is a numpy array of shape ``(n_samples, n_features)`` and the predictions ``y_pred`` is a numpy array of shape ``(n_samples,)``.
 
-The `predict` method returns the predictions `y_pred` of the classifier.::
+The ``predict`` method returns the predictions ``y_pred`` of the classifier.::
 
     >>> from sklearn.metrics import f1_score
     >>> y_pred = est.predict(X_test)
@@ -72,11 +76,13 @@ The `predict` method returns the predictions `y_pred` of the classifier.::
 Inspecting the classifier
 ---------
 
-You can check out the rules found by a classifier with `T=1` by using the `rules_` attribute. This is a list of `Rule` objects.::
+The focus for the ``bayes-point-learning`` package is to create white-box classifiers, in order to increase interpretability, explainability, and transparency. Therefore, the classifiers in this package can be inspected to check out the rules found by the classifier.
+
+You can check out the rules found by a classifier with ``T=1`` by using the ``rules_`` attribute. This is a list of ``Rule`` objects.::
 
     >>> est.rules_
 
-You can check out the rules found by a classifier with `T>1` by using the `rulesets_` attribute. This is a list of lists of `Rule` objects.::
+You can check out the rules found by a classifier with ``T>1`` by using the ``rulesets_`` attribute. This is a list of lists of ``Rule`` objects.::
 
     >>> est.rulesets_
 

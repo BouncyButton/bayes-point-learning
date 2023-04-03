@@ -68,7 +68,7 @@ autosummary_generate = True
 source_suffix = '.rst'
 
 # The encoding of source files.
-#source_encoding = 'utf-8-sig'
+# source_encoding = 'utf-8-sig'
 
 # Generate the plots for the gallery
 plot_gallery = True
@@ -77,8 +77,8 @@ plot_gallery = True
 master_doc = 'index'
 
 # General information about the project.
-project = u'sklearn-template'
-copyright = u'2016, Vighnesh Birodkar'
+project = u'bayes-point-learning'
+copyright = u'2023, Luca Bergamin'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -86,6 +86,7 @@ copyright = u'2016, Vighnesh Birodkar'
 #
 # The short X.Y version.
 from bpllib import __version__
+
 version = __version__
 # The full version, including alpha/beta/rc tags.
 release = __version__
@@ -278,9 +279,9 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'project-template', u'project-template Documentation',
-   u'Vighnesh Birodkar', 'project-template', 'One line description of project.',
-   'Miscellaneous'),
+    ('index', 'bayes-point-learning', u'bayes-point-learning Documentation',
+     u'Luca Bergamin', 'bayes-point-learning', 'A machine learning package to perform rule learning.',
+     'Miscellaneous'),
 ]
 
 # Documents to append as an appendix to all manuals.
