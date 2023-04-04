@@ -40,7 +40,7 @@ def get_paths(clf, t, node_id, curr_path, curr_rule, target_class=1):
         # print('path found:', curr_path)
         v = t.tree_.value[node_id]
         if clf.classes_[np.argmax(v)] == target_class:
-        return [curr_path], [Rule(curr_rule)]
+            return [curr_path], [Rule(curr_rule)]
 
     # print(node_id, 'is not leaf')
     # otherwise, use recursion

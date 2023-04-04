@@ -13,7 +13,7 @@ jobs:
       - name: Install coverage
         run: pip install pytest-cov
       - name: Run tests and collect coverage
-        run: pytest --cov .
+        run: pytest --cov bpllib  # should consider to include experiments?
       - name: Upload coverage reports to Codecov
         run: |
           # Replace `linux` below with the appropriate OS
