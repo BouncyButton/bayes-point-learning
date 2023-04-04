@@ -38,7 +38,7 @@ def test_aq_estimator(data):
         # enc = OneHotEncoder(handle_unknown='ignore')
         # X = enc.fit_transform(X).toarray().astype(int)
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=0)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.9, random_state=0)
         est = AqClassifier(maxstar=2, T=1, verbose=1)
         est.fit(X_train, y_train)
         f1_base = f1_score(y_test, est.predict(X_test))
