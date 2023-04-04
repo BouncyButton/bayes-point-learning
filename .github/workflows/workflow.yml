@@ -19,5 +19,5 @@ jobs:
         uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./bpllib/.coverage
+          files: ./bpllib/coverage.xml
           fail_ci_if_error: true
