@@ -16,7 +16,6 @@ jobs:
         working-directory: ./bpllib
         run: pytest --cov .  # should consider to include experiments?
       - name: Upload coverage reports to Codecov
-        working-directory: .
         run: |
           # Replace `linux` below with the appropriate OS
           # Options are `alpine`, `linux`, `macos`, `windows`
