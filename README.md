@@ -1,6 +1,6 @@
 # Bayes point Rule set learning
 
-![coverage](bpllib/coverage.svg)
+[![codecov](https://codecov.io/gh/BouncyButton/bayes-point-learning/branch/main/graph/badge.svg?token=202TOBNEVQ)](https://codecov.io/gh/BouncyButton/bayes-point-learning)
 
 This repository contains a scikit-learn compatible implementation of the Bayes point learning algorithm described in the
 paper [Bayes Point Rule Set Learning](https://arxiv.org/abs/2204.05251). The algorithm is implemented in
