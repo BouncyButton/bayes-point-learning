@@ -14,7 +14,7 @@ jobs:
         run: pip install pytest-cov
       - name: Run tests and collect coverage
         working-directory: ./bpllib
-        run: pytest --cov .  # should consider to include experiments?
+        run: pytest --cov .  --cov-report=xml # should consider to include experiments?
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v2
         with:
