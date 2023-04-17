@@ -7,7 +7,8 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 
-from bpllib import get_dataset, FindRsClassifier
+from bpllib import get_dataset
+
 from bpllib._bp import best_k_rules
 from bpllib._bpl import Rule, DiscreteConstraint
 from bpllib._id3 import ID3Classifier

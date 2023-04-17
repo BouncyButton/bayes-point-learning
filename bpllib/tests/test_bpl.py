@@ -2,7 +2,8 @@ import pytest
 from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 
-from bpllib import get_dataset, FindRsClassifier
+from bpllib import get_dataset
+from bpllib._bpl import FindRsClassifier
 
 test_datasets = [  # 'CAR',
     'TTT',

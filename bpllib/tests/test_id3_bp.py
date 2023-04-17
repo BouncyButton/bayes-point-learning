@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from sklearn.metrics import f1_score
 
-from bpllib._id3_bp import Id3Classifier
+from bpllib import Id3Classifier
 from bpllib.tests.utils import run_training, data_custom
 
 from .utils import data

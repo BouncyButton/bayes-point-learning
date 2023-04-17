@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from bpllib._ripper_bp import RipperClassifier
+from bpllib import RipperClassifier
 from bpllib.tests.utils import run_training, data_custom
 
 from bpllib.tests.utils import data
