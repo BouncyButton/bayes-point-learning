@@ -399,7 +399,8 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
     def _more_tags(self):
         return {'X_types': ['2darray', 'string'], 'requires_y': True}
 
-    def fit(self, X, y, target_class=None, pool_size=1, find_best_k=False, starting_seed=0, optimization=True):
+    def fit(self, X, y, target_class=None, pool_size=1, find_best_k=False, starting_seed=0, optimization=True,
+            **kwargs):
         """A reference implementation of a fitting function for a classifier.
 
         Parameters
@@ -447,13 +448,13 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
             self.other_class_ = (set(self.classes_) - {self.target_class_}).pop() if len(self.classes_) > 1 else None
 
             if self.T == 1:
-                self.rules_, self.bins_ = FindRsClassifier.find_rs(X, y, target_class, optimization=optimization)
+                self.rules_, self.bins_ = FindRsClassifier.find_rs(X, y, target_class, optimization=optimization,
+                                                                   **kwargs)
             else:
                 outputs = FindRsClassifier.find_rs_with_multiple_runs(X, y, target_class, T=self.T, pool_size=pool_size,
                                                                       starting_seed=starting_seed)
                 self.rulesets_ = [D for D, B in outputs]
                 self.counter_ = alpha_representation(self.rulesets_)
-
 
         else:
             self.ovr_ = OneVsRestClassifier(FindRsClassifier(tol=self.tol, T=self.T)).fit(X, y)
@@ -546,14 +547,15 @@ class FindRsClassifier(ClassifierMixin, BaseEstimator):
                                               strategy=strategy, n_rules=n_rules) for x in X])
 
     @staticmethod
-    def find_rs(X, y, target_class, tol=0, optimization=None):
+    def find_rs(X, y, target_class, tol=0, optimization=None, verbose=0):
         train_p = list(X[y == target_class])
         train_n = list(X[y != target_class])
 
         D, B, k = [], [], 0
 
         while len(train_p) > 0:
-
+            if verbose > 5:
+                print("{0} ({1:.2%})".format(len(train_p), 1 - len(train_p) / (y == target_class).sum()))
             first = train_p.pop(0)
             B.append([first])
             D.append(RuleByExample(first))

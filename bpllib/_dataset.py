@@ -1,6 +1,7 @@
 import zlib
 
 import numpy as np
+import pandas as pd
 
 from bpllib import ROOT_DIR
 
@@ -12,6 +13,10 @@ def _read_and_create(url, names, sep=',', drop_names=None, url_test=None, name_i
     import pandas as pd
 
     filename = url.split('/')[-1]
+
+    if not os.path.exists(os.path.join(ROOT_DIR, DATASET_FOLDER)):
+        os.makedirs(os.path.join(ROOT_DIR, DATASET_FOLDER))
+
     filepath = os.path.join(ROOT_DIR, DATASET_FOLDER, filename)
 
     if not os.path.exists(filepath):
@@ -89,6 +94,55 @@ def get_dataset(dataset_name='TTT'):
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/tic-tac-toe/tic-tac-toe.data',
             names=[letter + number for letter in 'a' for number in '123456789'] + ['class'],
             positive_label='positive')
+
+    elif dataset_name == 'ADULT':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data',
+            names=['Age', 'Workclass', 'fnlwgt', 'Education', 'Education-Num', 'Marital Status', 'Occupation',
+                   'Relationship', 'Race', 'Sex', 'Capital Gain', 'Capital Loss', 'Hours per week',
+                   'Native Country', 'class'],
+            positive_label=' >50K', target_feature='class'
+        )
+
+        # discretize age using 5 bins with quantile strategy
+        X['Age'] = pd.qcut(X['Age'], 5, labels=None,
+                           duplicates='drop')  # ['very low', 'low', 'medium', 'high', 'very high'])
+        # hours per week
+        X['Hours per week'] = pd.qcut(X['Hours per week'], 5, labels=None,
+                                      duplicates='drop')  # labels=['very low', 'low', 'medium', 'high', 'very high'])
+        # capital gain
+        X['Capital Gain'] = pd.qcut(X['Capital Gain'], 5, labels=None,
+                                    duplicates='drop')  # labels=['very low', 'low', 'medium', 'high', 'very high'])
+        # capital loss
+        X['Capital Loss'] = pd.qcut(X['Capital Loss'], 5, labels=None,
+                                    duplicates='drop')  # labels=['very low', 'low', 'medium', 'high', 'very high'])
+        # education num
+        X['Education-Num'] = pd.qcut(X['Education-Num'], 5, labels=None,
+                                     duplicates='drop')  # labels=['very low', 'low', 'medium', 'high', 'very high'])
+        # fnlwgt
+        X['fnlwgt'] = pd.qcut(X['fnlwgt'], 5, labels=None,
+                              duplicates='drop')  # labels=['very low', 'low', 'medium', 'high', 'very high'])
+
+        # convert X to string
+        X = X.astype(str)
+
+    elif dataset_name == 'MARKET':
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank.zip',
+            names=['age', 'job', 'marital', 'education', 'default', 'balance', 'housing', 'loan', 'contact', 'day',
+                   'month', 'duration', 'campaign', 'pdays', 'previous', 'poutcome', 'y'],
+            positive_label='yes', target_feature='y')
+
+    elif dataset_name == 'COMPAS':
+        X, y = _get_data(
+            url='https://raw.githubusercontent.com/fingoldin/pycorels/master/examples/data/compas.csv',
+            names=['Age=18-20', 'Age=18-22', 'Age=18-25', 'Age=24-30', 'Age=24-40', 'Age>=30', 'Age<=40', 'Age<=45',
+                   'Gender=Male', 'Race=African-American', 'Race=Caucasian', 'Race=Asian', 'Race=Hispanic',
+                   'Race=Native-American', 'Race=Other', 'Juvenile-Felonies=0', 'Juvenile-Felonies=1-3',
+                   'Juvenile-Felonies>3', 'Juvenile-Crimes=0', 'Juvenile-Crimes=1-3', 'Juvenile-Crimes>3',
+                   'Juvenile-Crimes>5', 'Prior-Crimes=0', 'Prior-Crimes=1-3', 'Prior-Crimes>3', 'Prior-Crimes>5',
+                   'Current-Charge-Degree=Misdemeanor', 'Recidivate-Within-Two-Years'],
+            positive_label=1, target_feature='Recidivate-Within-Two-Years')
 
     elif dataset_name == 'CERV':
         X, y = _get_data(
@@ -319,6 +373,5 @@ def get_dataset(dataset_name='TTT'):
 
     else:
         raise NotImplementedError(f'The dataset {dataset_name} was not found.')
-
 
     return X, y

@@ -31,9 +31,14 @@ For example, to train a BPL classifier on the iris dataset, run
     clf.fit(X_train, y_train)
     print(clf.score(X_test, y_test))
 
+## Docs
+
+The documentation is available at https://bayes-point-learning.readthedocs.io/en/latest/.
+
 ## Citation
 
-If you use this code in your research, please cite the paper [Bayes Point Rule Set Learning](https://arxiv.org/abs/2204.05251).
+If you use this code in your research, please cite the
+paper [Bayes Point Rule Set Learning](https://arxiv.org/abs/2204.05251).
 
     @article{Aiolli2022BayesPR,
       title={Bayes Point Rule Set Learning},

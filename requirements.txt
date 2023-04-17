@@ -8,3 +8,5 @@ setuptools
 tqdm
 wittgenstein
 wget
+corels
+imodels

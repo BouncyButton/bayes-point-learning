@@ -5,3 +5,9 @@ dependencies:
   - scikit-learn
   - pandas
   - matplotlib
+  - wittgenstein
+  - corels
+  - skater
+  - wget
+  - unlzw3
+  - imodels
