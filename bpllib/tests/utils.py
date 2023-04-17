@@ -3,7 +3,6 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import train_test_split
 
 from bpllib import get_dataset
-from bpllib._dummy_bp import DummyClassifier
 
 
 @pytest.fixture
