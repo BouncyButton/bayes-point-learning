@@ -15,7 +15,7 @@ from sklearn.utils.validation import check_is_fitted, check_array
 from tqdm import tqdm
 
 from bpllib._bp import callable_rules_bo, callable_rules_bp
-from bpllib.utils import resample
+from .utils import resample
 
 
 class BayesPointClassifier(ClassifierMixin, BaseEstimator):

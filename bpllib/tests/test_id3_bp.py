@@ -5,8 +5,8 @@ from sklearn.metrics import f1_score
 from bpllib._id3_bp import Id3Classifier
 from bpllib.tests.utils import run_training, data_custom
 
-from bpllib.tests.utils import data
-from bpllib.utils import remove_inconsistent_data
+from .utils import data
+from ..utils import remove_inconsistent_data
 
 
 @pytest.mark.parametrize("T", [3])

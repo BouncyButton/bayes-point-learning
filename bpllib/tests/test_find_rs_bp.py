@@ -5,10 +5,10 @@ from bpllib import get_dataset
 from bpllib._find_rs_bp import FindRsClassifier
 from bpllib.tests.utils import run_training, data_custom
 
-from bpllib.tests.utils import data
+from .utils import data
 import time
 
-from bpllib.utils import remove_inconsistent_data
+from ..utils import remove_inconsistent_data
 
 
 @pytest.mark.parametrize("T", [20])
