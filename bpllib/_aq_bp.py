@@ -102,7 +102,7 @@ def Q(r, P, N, unique_values, eps=1e-8):
 def star(p, P, N: np.ndarray, unique_values, maxstar=5, mode='TF', minq=0.5, verbose=0):
     PS = set()
     for n in N:
-        if verbose > 3:
+        if verbose > 20:
             print("neg", n)
         # select a negative example n from N
         # extend the rule against n
@@ -114,11 +114,11 @@ def star(p, P, N: np.ndarray, unique_values, maxstar=5, mode='TF', minq=0.5, ver
             PS = new_PS
         else:
             # perform logical multiplication of PS and new_PS
-            if verbose > 2:
+            if verbose > 20:
                 print("PS", PS)
                 print("newps:", new_PS)
             PS = {r1 * r2 for r1 in PS for r2 in new_PS if r1 * r2}
-            if verbose > 2:
+            if verbose > 20:
                 print("result: ", PS)
         # keep only maxstar best complexes in PS, according to Q
         PS = set(sorted(PS, key=lambda r: Q(r, P, N, unique_values), reverse=True)[:maxstar])
@@ -128,7 +128,7 @@ def star(p, P, N: np.ndarray, unique_values, maxstar=5, mode='TF', minq=0.5, ver
         # N = N[np.array([not any([r.covers(x) for r in PS]) for x in N])]
 
     # it seems we need to return one rule at a time, so we return the best rule according to Q
-    if verbose > 1:
+    if verbose > 10:
         print([(r, "q=" + str(Q(r, P, N, unique_values))) for r in PS])
     # you should find a way to break ties
     # here i pick all the rules with max q
@@ -148,7 +148,7 @@ def star(p, P, N: np.ndarray, unique_values, maxstar=5, mode='TF', minq=0.5, ver
     #     rule_found = rules_with_max_q[0]
 
     rule_found = max(PS, key=lambda r: Q(r, P, N, unique_values))
-    if verbose > 1:
+    if verbose > 10:
         print(rule_found, '\tp=', len(rule_found.examples_covered(P)), '\tn=',
               len(rule_found.examples_covered(N)))
     return rule_found

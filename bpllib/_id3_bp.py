@@ -26,9 +26,9 @@ def tree_to_my_rules(tree):
     myruleset = []
     for rule in rulelist:
         myconstraints = {}
-        constraints = rule.split(",")
+        constraints = rule.split(";")
         for constraint in constraints:
-            v = constraint.split('=')
+            v = constraint.split('-->')
             if v == ['']:
                 continue
             attrindex, val = v[0], v[1]
@@ -53,7 +53,7 @@ def __tree_to_rules(tree, rule=''):
     rules = []
     for node in tree:
         if isinstance(node, str):
-            rule += node + ','
+            rule += node + ';'
         else:
             rules += __tree_to_rules(node, rule)
     if rules:
@@ -77,11 +77,11 @@ def mine_c45(table, result):
     for subt in get_subtables(table, col):
         v = subt[col][0]
         if is_mono(subt[result]):
-            tree.append(['%s=%s' % (col, v),  # was '%s=%s' %
-                         '%s=%s' % (result, subt[result][0])])  # also here
+            tree.append(['%s-->%s' % (col, v),  # was '%s=%s' %
+                         '%s-->%s' % (result, subt[result][0])])  # also here
         else:
             del subt[col]
-            tree.append(['%s=%s' % (col, v)] + mine_c45(subt, result))  # also here
+            tree.append(['%s-->%s' % (col, v)] + mine_c45(subt, result))  # also here
     return tree
 
 
@@ -129,7 +129,8 @@ def get_values(t, col, indexes):
 def del_values(t, ind):
     """ Creates the new table with values of _ind_.
     """
-    return {k: [v[i] for i in range(len(v)) if i in ind] for k, v in t.items()}
+    return {k: [v[i] for i in ind] for k, v in t.items()}
+    # return {k: [v[i] for i in range(len(v)) if i in ind] for k, v in t.items()}
 
 
 def print_list_tree(tree, tab=''):

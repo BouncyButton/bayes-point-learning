@@ -1,9 +1,13 @@
 import zlib
 
 import numpy as np
+import pandas
 import pandas as pd
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
 
 from bpllib import ROOT_DIR
+from bpllib.utils import get_indexes_of_good_datapoints
 
 DATASET_FOLDER = 'dataset'
 
@@ -87,23 +91,61 @@ def _get_data(url, names, positive_label, target_feature='class', sep=',', drop_
     return X, y
 
 
-def get_dataset(dataset_name='TTT'):
-    # TTT
-    if dataset_name == 'TTT':
-        X, y = _get_data(
-            url='https://archive.ics.uci.edu/ml/machine-learning-databases/tic-tac-toe/tic-tac-toe.data',
-            names=[letter + number for letter in 'a' for number in '123456789'] + ['class'],
-            positive_label='positive')
+def get_float_dataset(dataset_name='TTT'):
+    if dataset_name == 'ADULT':
+        X, y = get_dataset(dataset_name=dataset_name)
 
-    elif dataset_name == 'ADULT':
-        X, y = _get_data(
-            url='https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data',
-            names=['Age', 'Workclass', 'fnlwgt', 'Education', 'Education-Num', 'Marital Status', 'Occupation',
-                   'Relationship', 'Race', 'Sex', 'Capital Gain', 'Capital Loss', 'Hours per week',
-                   'Native Country', 'class'],
-            positive_label=' >50K', target_feature='class'
-        )
+        df = pandas.DataFrame()
 
+        # keep numerical data
+        df['Age'] = X['Age']
+        df['Hours per week'] = X['Hours per week']
+        df['Capital Gain'] = X['Capital Gain']
+        df['Capital Loss'] = X['Capital Loss']
+        df['Education-Num'] = X['Education-Num']
+        df['fnlwgt'] = X['fnlwgt']
+
+        # apply standard one hot encoding only to categorical features
+        enc = OneHotEncoder(handle_unknown='ignore')
+        X = enc.fit_transform(
+            X.drop(['Age', 'Hours per week', 'Capital Gain', 'Capital Loss', 'Education-Num', 'fnlwgt'],
+                   axis=1)).toarray().astype(int)
+        X = np.concatenate((X, df.values), axis=1)
+
+    elif dataset_name == 'MARKET':
+        X, y = get_dataset(dataset_name=dataset_name)
+
+        df = pandas.DataFrame()
+
+        # keep numerical data
+        df['age'] = X['age']
+        df['day'] = X['day']
+        df['balance'] = X['balance']
+        df['duration'] = X['duration']
+        df['campaign'] = X['campaign']
+        df['pdays'] = X['pdays']
+
+        # apply standard one hot encoding only to categorical features
+        enc = OneHotEncoder(handle_unknown='ignore')
+        X = enc.fit_transform(
+            X.drop(['age', 'day', 'balance', 'duration', 'campaign', 'pdays'],
+                   axis=1)).toarray().astype(int)
+        X = np.concatenate((X, df.values), axis=1)
+
+    else:
+        # apply standard one hot encoding
+        X, y = get_dataset(dataset_name=dataset_name)
+        enc = OneHotEncoder(handle_unknown='ignore')
+        X = enc.fit_transform(X).toarray().astype(int)
+
+        # X = pd.get_dummies(X)
+
+    return X, y
+
+
+def get_discrete_dataset(dataset_name='TTT'):
+    if dataset_name == 'ADULT':
+        X, y = get_dataset(dataset_name=dataset_name)
         # discretize age using 5 bins with quantile strategy
         X['Age'] = pd.qcut(X['Age'], 5, labels=None,
                            duplicates='drop')  # ['very low', 'low', 'medium', 'high', 'very high'])
@@ -127,13 +169,104 @@ def get_dataset(dataset_name='TTT'):
         X = X.astype(str)
 
     elif dataset_name == 'MARKET':
+        X, y = get_dataset(dataset_name=dataset_name)
+        # discretize age using 5 bins with quantile strategy
+        X['age'] = pd.qcut(X['age'], 5, labels=None, duplicates='drop')
+        # day
+        X['day'] = pd.qcut(X['day'], 5, labels=None, duplicates='drop')
+        # balance
+        X['balance'] = pd.qcut(X['balance'], 5, labels=None, duplicates='drop')
+        # duration
+        X['duration'] = pd.qcut(X['duration'], 5, labels=None, duplicates='drop')
+        # campaign
+        X['campaign'] = pd.qcut(X['campaign'], 5, labels=None, duplicates='drop')
+        # pdays
+        X['pdays'] = pd.qcut(X['pdays'], 5, labels=None, duplicates='drop')
+
+        # convert X to string
+        X = X.astype(str)
+
+    elif dataset_name == 'CERV':
+        X, y = get_dataset(dataset_name=dataset_name)
+
+        # replace 'unk' values with NaN
+        X.replace('unk', np.nan, inplace=True)
+
+        # calculate median for each column
+        medians = X.median()
+
+        # replace NaN values with corresponding medians
+        X.fillna(medians, inplace=True)
+
+        X = X.astype(float)
+
+        # discretize age using 5 bins with quantile strategy
+        X['Age'] = pd.qcut(X['Age'], 5, labels=None, duplicates='drop')
+        # First sexual intercourse
+        X['First sexual intercourse'] = pd.qcut(X['First sexual intercourse'], 5, labels=None, duplicates='drop')
+        # Num of pregnancies
+        X['Num of pregnancies'] = pd.qcut(X['Num of pregnancies'], 5, labels=None, duplicates='drop')
+        # Smokes (years)
+        X['Smokes (years)'] = pd.qcut(X['Smokes (years)'], 5, labels=None, duplicates='drop')
+        # Smokes (packs/year)
+        X['Smokes (packs/year)'] = pd.qcut(X['Smokes (packs/year)'], 5, labels=None, duplicates='drop')
+        # Hormonal Contraceptives (years)
+        X['Hormonal Contraceptives (years)'] = pd.qcut(X['Hormonal Contraceptives (years)'], 5, labels=None,
+                                                       duplicates='drop')
+        X = X.astype(str)
+
+    else:
+        X, y = get_dataset(dataset_name=dataset_name)
+    return X, y
+
+
+def get_dataset_continue_and_discrete(dataset_name='TTT', verbose=False):
+    X_cont, y = get_float_dataset(dataset_name=dataset_name)
+    X_disc, _ = get_discrete_dataset(dataset_name=dataset_name)
+
+    if verbose:
+        print(f"removing inconsistent data from {dataset_name}, N={len(X_cont)}")
+    idx = get_indexes_of_good_datapoints(X_disc, y)
+    if verbose:
+        print(f"removed {len(X_cont) - len(idx)} inconsistent data from {dataset_name}, N={len(idx)}")
+    return X_cont[list(idx)], X_disc.iloc[idx], y[list(idx)]
+
+
+def get_dataset(dataset_name='TTT', return_extra_info=False, remove_inconsistent=False):
+    positive_label = None
+    target_feature = None
+    # TTT
+    if dataset_name == 'TTT':
+        positive_label = 'positive'
+        target_feature = 'class'
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/tic-tac-toe/tic-tac-toe.data',
+            names=[letter + number for letter in 'a' for number in '123456789'] + ['class'],
+            positive_label=positive_label)
+
+    elif dataset_name == 'ADULT':
+        positive_label = ' >50K'
+        target_feature = 'class'
+        X, y = _get_data(
+            url='https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data',
+            names=['Age', 'Workclass', 'fnlwgt', 'Education', 'Education-Num', 'Marital Status', 'Occupation',
+                   'Relationship', 'Race', 'Sex', 'Capital Gain', 'Capital Loss', 'Hours per week',
+                   'Native Country', 'class'],
+            positive_label=positive_label, target_feature=target_feature
+        )
+
+    elif dataset_name == 'MARKET':
+        positive_label = 'yes'
+        target_feature = 'y'
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank.zip',
             names=['age', 'job', 'marital', 'education', 'default', 'balance', 'housing', 'loan', 'contact', 'day',
                    'month', 'duration', 'campaign', 'pdays', 'previous', 'poutcome', 'y'],
-            positive_label='yes', target_feature='y')
+            positive_label=positive_label, target_feature=target_feature, name_in_zip='bank-full.csv', sep=';')
 
     elif dataset_name == 'COMPAS':
+        positive_label = 1
+        target_feature = 'Recidivate-Within-Two-Years'
         X, y = _get_data(
             url='https://raw.githubusercontent.com/fingoldin/pycorels/master/examples/data/compas.csv',
             names=['Age=18-20', 'Age=18-22', 'Age=18-25', 'Age=24-30', 'Age=24-40', 'Age>=30', 'Age<=40', 'Age<=45',
@@ -142,9 +275,11 @@ def get_dataset(dataset_name='TTT'):
                    'Juvenile-Felonies>3', 'Juvenile-Crimes=0', 'Juvenile-Crimes=1-3', 'Juvenile-Crimes>3',
                    'Juvenile-Crimes>5', 'Prior-Crimes=0', 'Prior-Crimes=1-3', 'Prior-Crimes>3', 'Prior-Crimes>5',
                    'Current-Charge-Degree=Misdemeanor', 'Recidivate-Within-Two-Years'],
-            positive_label=1, target_feature='Recidivate-Within-Two-Years')
+            positive_label=positive_label, target_feature=target_feature)
 
     elif dataset_name == 'CERV':
+        positive_label = 1
+        target_feature = 'Biopsy'
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/00383/risk_factors_cervical_cancer.csv',
             names=['Age', 'Number of sexual partners', 'First sexual intercourse', 'Num of pregnancies', 'Smokes',
@@ -156,25 +291,29 @@ def get_dataset(dataset_name='TTT'):
                    'STDs:HPV', 'STDs: Number of diagnosis', 'STDs: Time since first diagnosis',
                    'STDs: Time since last diagnosis', 'Dx:Cancer', 'Dx:CIN', 'Dx:HPV', 'Dx', 'Hinselmann', 'Schiller',
                    'Citology', 'Biopsy'],
-            positive_label=1, target_feature='Biopsy'
-        )
+            positive_label=positive_label, target_feature=target_feature)
+
 
     elif dataset_name == 'HIV':
+        positive_label = 1
+        target_feature = 'class'
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/00330/newHIV-1_data.zip',
             names=['amino', 'class'],
-            positive_label=1,
+            positive_label=positive_label,
             name_in_zip='746Data.txt'
         )
-        X = np.array([np.array([c for c in row[0]]) for row in X.values])
+        X = pd.DataFrame([np.array([c for c in row[0]]) for row in X.values])
         assert y.sum() != 0
 
     elif dataset_name == 'BREAST':
+        positive_label = 'recurrence-events'
+        target_feature = 'class'
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer/breast-cancer.data',
             names=['class', 'age', 'menopause', 'tumor-size', 'inv-nodes', 'node-caps', 'deg-malig', 'breast',
                    'breast-quad', 'irradiat'],
-            positive_label='recurrence-events', target_feature='class'
+            positive_label=positive_label, target_feature=target_feature
         )
 
     elif dataset_name == 'BALANCE':
@@ -226,16 +365,20 @@ def get_dataset(dataset_name='TTT'):
         # and should be removed (otherwise the problem is trivial)
 
     elif dataset_name == 'PRIMARY':
+        positive_label = 1
+        target_feature = 'class'
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/primary-tumor/primary-tumor.data',
             names=['class', 'age', 'sex', 'histologic-type', 'degree-of-diffe',
                    'bone', 'bone-marrow', 'lung', 'pleura', 'peritoneum', 'liver', 'brain', 'skin', 'neck',
                    'supraclavicular',
                    'axillar', 'mediastinum', 'abdominal'],
-            positive_label=1
+            positive_label=positive_label, target_feature=target_feature
         )  # check the most frequent class
 
     elif dataset_name == 'LYMPHOGRAPHY':
+        positive_label = 2
+        target_feature = 'class'
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/lymphography/lymphography.data',
             names=['class', 'lymphatics', 'block-of-afferent', 'bl. of lymph. c', 'bl. of lymph. s', 'by pass',
@@ -244,10 +387,12 @@ def get_dataset(dataset_name='TTT'):
                    'defect in node',
                    'changes in node', 'changes in stru', 'special forms', 'dislocation of', 'exclusion of no',
                    'no. of nodes in'],
-            positive_label=2
+            positive_label=positive_label, target_feature=target_feature
         )
 
     elif dataset_name == 'SOYBEAN':
+        positive_label = 'frog-eye-leaf-spot'
+        target_feature = 'class'
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/soybean/soybean-large.data',
             names=['class', 'date', 'plant-stand', 'precip', 'temp', 'hail', 'crop-hist', 'area-damaged', 'severity',
@@ -257,10 +402,12 @@ def get_dataset(dataset_name='TTT'):
                    'fruiting-bodies',
                    'external decay', 'mycelium', 'int-discolor', 'sclerotia', 'fruit-pods', 'fruit spots', 'seed',
                    'mold-growth', 'seed-discolor', 'seed-size', 'shriveling', 'roots'],
-            positive_label='frog-eye-leaf-spot'
+            positive_label=positive_label, target_feature=target_feature
         )
 
     elif dataset_name == 'VOTE':
+        positive_label = 'republican'
+        target_feature = 'class'
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/voting-records/house-votes-84.data',
             names=['class', 'handicapped-infants', 'water-project-cost-sharing',
@@ -269,9 +416,11 @@ def get_dataset(dataset_name='TTT'):
                    'aid-to-nicaraguan-contras', 'mx-missile', 'immigration',
                    'synfuels-corporation-cutback', 'education-spending', 'superfund-right-to-sue',
                    'crime', 'duty-free-exports', 'export-administration-act-south-africa'],
-            positive_label='republican')
+            positive_label=positive_label, target_feature=target_feature)
 
     elif dataset_name == 'KR-VS-KP':
+        positive_label = 'won'
+        target_feature = 'class'
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/chess/king-rook-vs-king-pawn/kr-vs-kp.data',
             names=['bkblk', 'bknwy', 'bkon8', 'bkona', 'bkspr', 'bkxbq',
@@ -280,44 +429,61 @@ def get_dataset(dataset_name='TTT'):
                    'reskd', 'reskr', 'rimmx', 'rkxwp', 'rxmsq', 'simpl',
                    'skach', 'skewr', 'skrxp', 'spcop', 'stlmt', 'thrsk',
                    'wkcti', 'wkna8', 'wknck', 'wkovl', 'wkpos', 'wtoeg'] + ['class'], sep=',',
-            positive_label='won')
+            positive_label=positive_label, target_feature=target_feature)
 
     elif dataset_name == 'CONNECT-4':
+        positive_label = 'win'
+        target_feature = 'class'
         X, y = _get_data(
             url='http://archive.ics.uci.edu/ml/machine-learning-databases/connect-4/connect-4.data.Z',
             names=[letter + number for letter in 'abcdefg' for number in '123456'] + ['class'],
-            positive_label='win')
+            positive_label=positive_label, target_feature=target_feature)
 
     elif dataset_name == 'CAR':
         url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/car/car.data'
         names = ['buying', 'maint', 'doors', 'persons', 'lug_boot', 'safety', 'class']
         positive_label = 'unacc'
-        X, y = _get_data(url, names, positive_label)
+        target_feature = 'class'
+        X, y = _get_data(url, names, positive_label=positive_label, target_feature=target_feature)
 
     # MONKS1
     elif dataset_name == 'MONKS1':
+        positive_label = 1
+        target_feature = 'class'
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/monks-problems/monks-1.train',
             names=['class', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'Id'], sep=' ',
-            positive_label=1, drop_names=['Id'],
+            positive_label=positive_label, target_feature=target_feature,
+            drop_names=['Id'],
             url_test='https://archive.ics.uci.edu/ml/machine-learning-databases/monks-problems/monks-1.test')
 
     # note: monks2 seems to perform better using tol=0, differently as noted in the paper.
     elif dataset_name == 'MONKS2':
+        positive_label = 1
+        target_feature = 'class'
+
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/monks-problems/monks-2.train',
             names=['class', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'Id'], sep=' ',
-            positive_label=1, drop_names=['Id'],
+            positive_label=positive_label, target_feature=target_feature,
+            drop_names=['Id'],
             url_test='https://archive.ics.uci.edu/ml/machine-learning-databases/monks-problems/monks-2.test')
 
     elif dataset_name == 'MONKS3':
+        positive_label = 1
+        target_feature = 'class'
+
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/monks-problems/monks-3.train',
             names=['class', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'Id'], sep=' ',
-            positive_label=1, drop_names=['Id'],
+            positive_label=positive_label, target_feature=target_feature,
+            drop_names=['Id'],
             url_test='https://archive.ics.uci.edu/ml/machine-learning-databases/monks-problems/monks-3.test')
 
     elif dataset_name == 'MUSH':
+        positive_label = 'e'
+        target_feature = 'class'
+
         X, y = _get_data(
             url='https://archive.ics.uci.edu/ml/machine-learning-databases/mushroom/agaricus-lepiota.data',
             names=['class'] + ['cap-shape', 'cap-surface', 'cap-color', 'bruises?', 'odor',
@@ -327,7 +493,7 @@ def get_dataset(dataset_name='TTT'):
                                'stalk-color-below-ring', 'veil-type', 'veil-color',
                                'ring-number', 'ring-type', 'spore-print-color',
                                'population', 'habitat'],
-            positive_label='e')
+            positive_label=positive_label, target_feature=target_feature)
 
     elif dataset_name == 'WINE':
         X, y = _get_data(
@@ -374,4 +540,12 @@ def get_dataset(dataset_name='TTT'):
     else:
         raise NotImplementedError(f'The dataset {dataset_name} was not found.')
 
-    return X, y
+    if remove_inconsistent:
+        idx = get_indexes_of_good_datapoints(X, y)
+        X = X.iloc[idx]
+        y = y[idx]
+
+    if return_extra_info:
+        return X, y, positive_label, target_feature
+    else:
+        return X, y

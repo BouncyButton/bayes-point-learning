@@ -1,3 +1,4 @@
+from copy import deepcopy
 from functools import partial
 from multiprocessing import Pool
 
@@ -5,8 +6,11 @@ import numpy as np
 
 
 def callable_rules_bo(Ds):
-    return [lambda x: 1 if any([rule.covers(x) for rule in D]) else -1 for D in Ds]
+    # è sbagliato?? return [lambda x: 1 if any([rule.covers(x) for rule in D]) else -1 for D in Ds]
+    def make_lambda(D):
+        return lambda x: 1 if any([rule.covers(x) for rule in D]) else -1
 
+    return [make_lambda(D) for D in Ds]
 
 def callable_rules_bp(Ds):
     # NO ! return [lambda x: sum([rule.covers(x) for rule in D]) for D in Ds]

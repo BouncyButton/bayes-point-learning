@@ -1,6 +1,9 @@
+import time
+
 import numpy as np
 import pytest
 from sklearn.metrics import f1_score
+from sklearn.model_selection import train_test_split
 
 from bpllib import Id3Classifier
 from bpllib.tests.utils import run_training, data_custom
@@ -15,16 +18,34 @@ from ..utils import remove_inconsistent_data
 def test_template_estimator_multi(T, pool_size, strategy):
     d = data_custom(['TTT'])
     kwargs = {'T': T, 'strategy': strategy, 'pool_size': pool_size}
+    t = time.time()
     run_training(Id3Classifier, kwargs, d, min_f1_score=0.75)
+    print(time.time() - t)
 
 
-@pytest.mark.parametrize("T", [1])
+@pytest.mark.parametrize("T", [20])
 @pytest.mark.parametrize("pool_size", [1])
-@pytest.mark.parametrize("strategy", ['bo', 'bp', 'single', 'best-k'])
+@pytest.mark.parametrize("strategy", ['bp'])
 def test_template_estimator_1(data, T, pool_size, strategy):
-    d = data_custom(['TTT'])
+    d = data_custom(['CAR', 'MONKS1', 'MUSH', 'TTT'])
     kwargs = {'T': T, 'strategy': strategy, 'pool_size': pool_size}
-    run_training(Id3Classifier, kwargs, d, min_f1_score=0.75)
+    t = time.time()
+    for name, (X, y) in d:
+        est = Id3Classifier(**kwargs)
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=0)
+        est.fit(X_train, y_train)
+        y_pred = est.predict(X_test)
+
+        f1 = f1_score(y_test, y_pred)
+        assert f1 > 0.9
+        assert (est.predict(X_test, strategy='old-bp') == est.predict(X_test, strategy='bp')).all()
+        ypred1 = est.predict(X_test, strategy='old-bo')
+        ypred2 = est.predict(X_test, strategy='bo')
+        f11 = f1_score(y_test, ypred1)
+        f12 = f1_score(y_test, ypred2)
+        assert (ypred1 == ypred2).all()
+        assert f11 == f12
 
 
 def test_estimator_replicability():

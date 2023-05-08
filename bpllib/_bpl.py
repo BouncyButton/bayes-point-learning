@@ -52,6 +52,9 @@ class Rule:
                     new_constraints[index] = c
         return Rule(new_constraints)
 
+    def __getitem__(self, item):
+        return self.constraints.get(item, None)
+
     def generalize(self, x: np.array):
         '''
         Generalizes a rule w.r.t. a given input.

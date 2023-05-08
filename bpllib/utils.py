@@ -32,3 +32,55 @@ def remove_inconsistent_data(X, y):
     y = df.iloc[:, -1]
 
     return X, y
+
+
+def get_indexes_of_good_datapoints(X, y, tiebreaker_value=True):
+    # get indexes
+    X = pd.DataFrame(X)
+    X.index = list(range(len(X)))
+    y = pd.Series(y)
+    y.index = list(range(len(X)))
+    # change column name
+    y.name = 'class'
+
+    df = pd.concat([X, y], axis=1)
+    df = df.set_axis(list(X.columns) + ['class'], axis=1)
+
+    # Aggregate the DataFrame to get the most frequent values for each group
+    df_agg = df.groupby(list(X.columns)).agg(lambda x: most_frequent_tiebreaker(x, tiebreaker_value)).reset_index()
+
+    return find_indexes(df, df_agg)
+
+
+def find_indexes(df1, df2):
+    df1_dict = {}
+    for i, row in df1.iterrows():
+        key = tuple(row)
+        if key not in df1_dict:
+            df1_dict[key] = i
+
+    indexes = []
+    for i, row in df2.iterrows():
+        key = tuple(row)
+        if key in df1_dict:
+            indexes.append(df1_dict[key])
+
+    return indexes
+
+
+def most_frequent_tiebreaker(x, tiebreaker_value):
+    value_counts = x.value_counts()
+    if len(value_counts) == 1:
+        return value_counts.index[0]
+    elif value_counts[0] > value_counts[1]:
+        return value_counts.index[0]
+    elif value_counts[0] == value_counts[1]:
+        return tiebreaker_value
+    else:
+        raise ValueError('This should not happen')
+
+
+easy_datasets = list(sorted(['MONKS1', 'MONKS2', 'MONKS3', 'TTT', 'CAR', 'CERV', 'COMPAS', 'BREAST', 'SOYBEAN', 'HIV',
+                             'LYMPHOGRAPHY', 'PRIMARY', 'VOTE']))
+medium_datasets = list(sorted(['KR-VS-KP', 'MUSH']))
+hard_datasets = list(sorted(['MARKET', 'ADULT', 'CONNECT-4']))

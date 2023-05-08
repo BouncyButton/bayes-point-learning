@@ -1,4 +1,6 @@
+import copy
 import multiprocessing
+import random
 import time
 from itertools import repeat
 import warnings
@@ -9,6 +11,7 @@ from typing import Union
 import numpy as np
 from sklearn.base import ClassifierMixin, BaseEstimator
 from sklearn.multiclass import OneVsRestClassifier
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils import check_X_y
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_is_fitted, check_array
@@ -25,8 +28,9 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
     '''
     description = '(Abstract) Bayes Point Classifier'
 
-    def __init__(self, T=3, verbose=0, threshold_acc=0.99, target_class=None, pool_size='auto', find_best_k=False,
-                 random_state=None, **kwargs):
+    def __init__(self, T=3, verbose=0, threshold_acc=0.99, target_class=None, pool_size='auto', find_best_k=True,
+                 random_state=None, encoding='av', to_string=True, **kwargs):
+        self.encoding = encoding
         self.random_state = random_state
         self.find_best_k = find_best_k
         self.pool_size = pool_size
@@ -45,6 +49,7 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
         self.threshold_acc = threshold_acc
         self.verbose = verbose
         self.kwargs = kwargs
+        self.to_string = to_string
 
     def base_method(self, X, y, target_class):
         '''
@@ -96,6 +101,7 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
 
         else:
             X, y = check_X_y(X, y, dtype=[np.int32, np.int64])
+
         return X, y
 
     def execute_multiple_runs(self, X, y, target_class, T, pool_size: Union[str, int] = 1, starting_seed=None,
@@ -149,9 +155,17 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
 
         return outputs
 
-    def fit(self, X, y):
+    def fit(self, X, y, skip_checks=False):
+        if not skip_checks:
+            X, y = self.checks_for_base_method(X, y)
 
-        X, y = self.checks_for_base_method(X, y)
+        if self.encoding == 'ohe':
+            self.enc_ = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+            X = self.enc_.fit_transform(X)
+
+        # lazy fix, but should check why ordinal constraints are created
+        if self.to_string:
+            X = X.astype(str)
 
         # Store the classes seen during fit
         self.classes_ = unique_labels(y)
@@ -185,8 +199,8 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
         # if self.find_best_k:
         # bp_acc = (self.predict(X, strategy='bp') == y).mean()
         # self.suggested_k_ = None
-
-        self.suggested_k_ = self.compute_suggested_k_faster(X, y)
+        if self.find_best_k:
+            self.suggested_k_ = self.compute_suggested_k_faster(X, y, already_encoded=True)
 
         # if self.verbose > 2:
         #     print("Best-k search started. Accuracy threshold: {}".format(self.threshold_acc))
@@ -203,37 +217,79 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
 
         return self
 
-    def compute_suggested_k_faster(self, X, y: np.ndarray):
-        bp_acc = (self.predict(X, strategy='bp') == y).mean()
+    def rule_fire_matrix(self, X):
+        # X rows by number of unique rules
+        rule_fire = np.zeros((X.shape[0], len(self.counter_)))
+        freq_sum = 0
+        for i in range(len(X)):
+            if self.verbose > 5:
+                print("\rcomputing rule fire, {0:.2f}%".format(i / len(X) * 100), end="")
+            for j, (rule, freq) in enumerate(self.counter_.most_common(len(self.counter_))):
+                rule_fire[i, j] = rule.covers(X[i]) * freq
+                freq_sum += freq
+        return rule_fire
+
+    def classification_matrix(self, X, rule_fire):
+        return np.cumsum(rule_fire, axis=1) > self.T // 2
+        # classifications_with_k_rules = np.zeros((X.shape[0], len(self.counter_)))
+        # for j in range(rule_fire.shape[1]):
+        #     if self.verbose > 5:
+        #         print("\rcomputing classification {0:.2f}%".format(j / rule_fire.shape[1] * 100), end="")
+        #
+        #     classifications_with_k_rules[:, j] = np.sum(rule_fire[:, :j + 1], axis=1) > self.T // 2
+        # return classifications_with_k_rules
+
+    def compute_suggested_k_faster(self, X, y: np.ndarray, already_encoded=False):
+        if self.verbose > 5:
+            print("predict with bp for selecting bp_acc. Accuracy threshold: {}".format(self.threshold_acc))
+
+        # bp_acc = (self.predict(X, strategy='bp', already_encoded=already_encoded) == y).mean()
         self.suggested_k_ = None
 
         if self.verbose > 2:
             print("Best-k search started. Accuracy threshold: {}".format(self.threshold_acc))
 
-        # X rows by number of unique rules
-        rule_fire = np.zeros((X.shape[0], len(self.counter_)))
-        for i in range(len(X)):
-            for j, rule in enumerate(self.counter_):
-                rule_fire[i, j] = rule.covers(X[i])
+        # compute rule fire
+        rule_fire = self.rule_fire_matrix(X)
 
         # results
-        classifications_with_k_rules = np.zeros((X.shape[0], len(self.counter_)))
-        for j in range(rule_fire.shape[1]):
-            classifications_with_k_rules[:, j] = np.sign(np.sum(rule_fire[:, :j], axis=1))
+        classifications_with_k_rules = self.classification_matrix(X, rule_fire)
 
-        for k in range(1, len(self.counter_)):
+        bp_acc = (classifications_with_k_rules[:, -1] == y).mean()
+
+        for k in range(len(self.counter_)):
             new_acc = (classifications_with_k_rules[:, k] == y).mean()
-            if self.verbose > 5:
-                print("Trying k={0} of {1}, acc={2:.4f}, bp_acc={3:.4f}".format(k, len(self.counter_), new_acc, bp_acc))
+            if self.verbose > 12:
+                print(
+                    "\rTrying k={0} of {1}, acc={2:.4f}, bp_acc={3:.4f}".format(k, len(self.counter_), new_acc, bp_acc),
+                    end='')
 
             if new_acc >= self.threshold_acc * bp_acc:
-                return k
+                # since k is an index, we need to add 1 to get the number of rules
+                return k + 1
 
-        if self.suggested_k_ is None:
-            return len(self.counter_)
-        return self.suggested_k_
+        return len(self.counter_)
 
-    def predict(self, X: np.ndarray, strategy: str = 'bp', **kwargs) -> np.ndarray:
+    def validation(self, X, already_encoded=False):
+
+        # Check is fit had been called
+        check_is_fitted(self, ['rule_sets_', 'ovr_'], all_or_any=any)
+
+        # Input validation
+        X = check_array(X, dtype=None)
+        assert isinstance(X, np.ndarray)
+
+        # convert to ohe if needed
+        if self.encoding == 'ohe' and not already_encoded:
+            X = self.enc_.transform(X)
+        if self.to_string:
+            X = X.astype(str)
+
+        if X.shape[1] != self.n_features_in_:
+            raise ValueError('the number of features in predict is different from the number of features in fit')
+        return X
+
+    def predict(self, X: np.ndarray, strategy: str = 'bp', already_encoded=False, **kwargs) -> np.ndarray:
         """
         Predicts the target class for the given data.
 
@@ -255,16 +311,7 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
             The label for each sample is the label of the closest sample
             seen during fit.
         """
-
-        # Check is fit had been called
-        check_is_fitted(self, ['rule_sets_', 'ovr_'], all_or_any=any)
-
-        # Input validation
-        X = check_array(X, dtype=None)
-        assert isinstance(X, np.ndarray)
-
-        if X.shape[1] != self.n_features_in_:
-            raise ValueError('the number of features in predict is different from the number of features in fit')
+        X = self.validation(X, already_encoded=already_encoded)
 
         # lazy patch to pass tests
         if len(self.classes_) == 1:
@@ -282,17 +329,32 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
                  for row in X])
 
         if len(self.classes_) == 2 and strategy == 'bo':
-            rules_bo = callable_rules_bo(self.rule_sets_)
-            values = [sum([ht(x) for ht in rules_bo]) for x in X]
-            return np.array([self.target_class_ if np.sign(v) > 0 else self.other_class_ for v in values])
+            return self.predict_by_rules(X, 'bo')
+
+        if len(self.classes_) == 2 and strategy == 'old-bo':
+            return self.predict_bo_old(X)
 
         if len(self.classes_) == 2 and strategy == 'bp':
-            h_bp = callable_rules_bp(self.rule_sets_)
-            values = [h_bp(x) for x in X]
-            return np.array([self.target_class_ if v > self.T / 2 else self.other_class_ for v in values])
+            return self.predict_by_rules(X, 'bp', batch_size=kwargs.get('batch_size', 1000))
+
+            # this is equivalent
+            # most_freq_rules = self.counter_.most_common(99999999)
+            # alpha_rules = sum(self.counter_.values())
+            # alpha_k_rules = sum([alpha for r, alpha in most_freq_rules])
+            # gamma_k = alpha_k_rules / alpha_rules
+            #
+            # return np.array([self.target_class_
+            #                  if self.predict_one_with_best_k(x, most_freq_rules, gamma_k, self.T)
+            #                  else self.other_class_ for x in X])
+
+        # should be equivalent to below
+        if len(self.classes_) == 2 and strategy == 'old-bp':
+            return self.predict_bp_old(X)
 
         if len(self.classes_) == 2 and strategy == 'best-k':
             n_rules = kwargs.get('n_rules', self.suggested_k_)
+            if n_rules is None:
+                raise ValueError('call compute_suggested_k_faster before using best-k strategy')
             most_freq_rules = self.counter_.most_common(n_rules)
             alpha_rules = sum(self.counter_.values())
             alpha_k_rules = sum([alpha for r, alpha in self.counter_.most_common(n_rules)])
@@ -302,12 +364,68 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
                              if self.predict_one_with_best_k(x, most_freq_rules, gamma_k, self.T)
                              else self.other_class_ for x in X])
 
-    def compute_suggested_k(self, X, y):
-        bp_acc = (self.predict(X, strategy='bp') == y).mean()
+    def predict_bp_old(self, X):
+        h_bp = callable_rules_bp(self.rule_sets_)
+        values = [h_bp(x) for x in X]
+        return np.array([self.target_class_ if v > self.T / 2 else self.other_class_ for v in values])
+
+    def predict_bo_old(self, X):
+        rules_bo = callable_rules_bo(self.rule_sets_)
+        values = [sum([ht(x) for ht in rules_bo]) for x in X]
+        return np.array([self.target_class_ if np.sign(v) > 0 else self.other_class_ for v in values])
+
+    def predict_all(self, X):
+        # compute rule fire
+        rule_fire = self.rule_fire_matrix(X)
+
+        # results
+        classifications_with_k_rules = self.classification_matrix(X, rule_fire)
+
+        bp = classifications_with_k_rules[:, -1]
+        best_k = classifications_with_k_rules[:, self.suggested_k_ - 1]
+        bo = self.predict_by_rules(X, 'bo')
+        return bo, bp, best_k
+
+    def predict_by_rules(self, X, strategy='bp', batch_size=1000):
+        if strategy != 'bo':
+            result = []
+            for i in range(0, len(X), batch_size):
+                # compute rule fire
+                rule_fire = self.rule_fire_matrix(X[i:i + batch_size])
+
+                # results
+                classifications_with_k_rules = self.classification_matrix(X, rule_fire)
+
+                if strategy == 'bp':
+                    result.extend(classifications_with_k_rules[:, -1])
+                elif strategy == 'best-k':
+                    result.extend(classifications_with_k_rules[:, self.suggested_k_ - 1])
+            return np.array(result)
+        elif strategy == 'bo':
+            # X rows by number of dnfs
+            rule_fire = np.zeros((X.shape[0], len(self.rule_sets_)))
+
+            for i in range(len(X)):
+                if self.verbose > 5:
+                    print("\rcomputing rule fire, {0:.2f}%".format(i / len(X) * 100), end="")
+                for j, rule_set in enumerate(self.rule_sets_):
+                    covers = False
+                    for rule in rule_set:
+                        if rule.covers(X[i]):
+                            covers = True
+                            break
+                    rule_fire[i, j] = 1 if covers else -1
+
+            # compute bo
+            classifications = np.sign(np.sum(rule_fire, axis=1)) > 0
+            return classifications
+
+    def compute_suggested_k(self, X, y, already_encoded=False):
+        bp_acc = (self.predict(X, strategy='bp', already_encoded=already_encoded) == y).mean()
         suggested_k_ = None
 
         for k in range(1, len(self.counter_)):
-            new_acc = (self.predict(X, 'best-k', n_rules=k) == y).mean()
+            new_acc = (self.predict(X, 'best-k', n_rules=k, already_encoded=already_encoded) == y).mean()
             if new_acc >= self.threshold_acc * bp_acc:
                 suggested_k_ = k
                 break
@@ -318,3 +436,29 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
         for rule, alpha in most_freq_rules:
             vote += rule.covers(x) * alpha
         return vote > gamma_k * T / 2
+
+    # def fit_find_rs_on_rulesets(self, X, y):
+    #     # check if fitted
+    #     if self.rule_sets_ is None:
+    #         raise ValueError("You must fit the model before calling this method.")
+    #
+    #     from bpllib import FindRsClassifier
+    #     clf = FindRsClassifier()
+    #     clf.to_string = False
+    #     # filter from X only the corresponding target class
+    #     # todo this is wrong
+    #
+    #     N = [x for x, y1 in zip(X, y) if y1 != self.target_class_]
+    #
+    #     P = list(self.counter_.keys())
+    #     X = list(N) + list(P)
+    #     y = [self.other_class_] * len(N) + [self.target_class_] * len(P)
+    #
+    #     data = list(zip(X, y))
+    #
+    #     random.shuffle(data)
+    #
+    #     X, y = zip(*data)
+    #
+    #     rulesets = clf.base_method(X, y, target_class=self.target_class_)
+    #     print(rulesets)

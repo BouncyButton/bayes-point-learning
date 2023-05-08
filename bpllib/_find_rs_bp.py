@@ -10,11 +10,24 @@ class FindRsClassifier(BayesPointClassifier):
     '''
     description = 'Find-RS'
 
-    def __init__(self, put_negative_on_top=False, tol=0, **kwargs):
+    def __init__(self, put_negative_on_top=False, tol=0, n_bins=None, T=3, verbose=0, threshold_acc=0.99,
+                 target_class=None, pool_size='auto', find_best_k=True,
+                 random_state=None, encoding='av', to_string=True):
         self.put_negative_on_top = put_negative_on_top
+        self.n_bins = n_bins
         self.tol = tol
 
-        super().__init__(**kwargs)
+        # read BaseEstimator docs
+        #     All estimators should specify all the parameters that can be set
+        #     at the class level in their ``__init__`` as explicit keyword
+        #     arguments (no ``*args`` or ``**kwargs``).
+        # hence, we need to repeat ourselves here
+        # otherwise, we break the sklearn API contract (and CV does not work)
+        # alternative here: https://stackoverflow.com/questions/51430484/
+
+        super().__init__(T=T, verbose=verbose, threshold_acc=threshold_acc, target_class=target_class,
+                         pool_size=pool_size, find_best_k=find_best_k,
+                         random_state=random_state, encoding=encoding, to_string=to_string)
 
     def base_method(self, X, y, target_class):
         '''
@@ -30,6 +43,10 @@ class FindRsClassifier(BayesPointClassifier):
         while len(train_p) > 0:
             if self.verbose > 5:
                 print("{0} ({1:.2%})".format(len(train_p), 1 - len(train_p) / (y == target_class).sum()))
+
+            if self.n_bins is not None and len(B) >= self.n_bins:
+                break
+
             first = train_p.pop(0)
             B.append([first])
             D.append(RuleByExample(first))

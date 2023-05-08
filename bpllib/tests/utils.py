@@ -24,8 +24,8 @@ def run_training(estimator_class, kwargs, data, min_f1_score=0.0):
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=0)
         est.fit(X_train, y_train)
-        y_pred = est.predict(X_test)
+        y_pred = est.predict(X_test, strategy=kwargs['strategy'])
 
         f1 = f1_score(y_test, y_pred)
 
-        assert f1 >= min_f1_score, 'got ' + str(f1) + ' expected >= ' + str(min_f1_score)
+        assert (f1 >= min_f1_score)  # , ('got ' + str(f1) + ' expected >= ' + str(min_f1_score))
