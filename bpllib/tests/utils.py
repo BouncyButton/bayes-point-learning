@@ -18,13 +18,13 @@ def data_custom(test_datasets=None):
     return [(name, get_dataset(name)) for name in test_datasets]
 
 
-def run_training(estimator_class, kwargs, data, min_f1_score=0.0):
+def run_training(estimator_class, kwargs, data, min_f1_score=0.0, strategy='bp'):
     for name, (X, y) in data:
         est = estimator_class(**kwargs)
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=0)
         est.fit(X_train, y_train)
-        y_pred = est.predict(X_test, strategy=kwargs['strategy'])
+        y_pred = est.predict(X_test, strategy=strategy)
 
         f1 = f1_score(y_test, y_pred)
 

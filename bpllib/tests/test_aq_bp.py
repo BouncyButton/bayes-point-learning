@@ -12,8 +12,8 @@ from ..utils import remove_inconsistent_data
 @pytest.mark.parametrize("strategy", ['bo', 'bp', 'single', 'best-k'])
 def test_template_estimator_multi(T, pool_size, strategy):
     d = data_custom(['MONKS1'])
-    kwargs = {'T': T, 'strategy': strategy, 'pool_size': pool_size}
-    run_training(AqClassifier, kwargs, d, min_f1_score=0.8)
+    kwargs = {'T': T, 'pool_size': pool_size}
+    run_training(AqClassifier, kwargs, d, min_f1_score=0.8, strategy=strategy)
 
 
 @pytest.mark.parametrize("T", [1])
@@ -21,8 +21,8 @@ def test_template_estimator_multi(T, pool_size, strategy):
 @pytest.mark.parametrize("strategy", ['bo', 'bp', 'single', 'best-k'])
 def test_template_estimator_1(data, T, pool_size, strategy):
     d = data_custom(['MONKS1'])
-    kwargs = {'T': T, 'strategy': strategy, 'pool_size': pool_size}
-    run_training(AqClassifier, kwargs, d, min_f1_score=0.8)
+    kwargs = {'T': T, 'pool_size': pool_size}
+    run_training(AqClassifier, kwargs, d, min_f1_score=0.8, strategy=strategy)
 
 
 def test_estimator_replicability():

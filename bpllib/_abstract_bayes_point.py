@@ -19,6 +19,7 @@ from tqdm import tqdm
 
 from bpllib._bp import callable_rules_bo, callable_rules_bp
 from .utils import resample
+from joblib import Memory
 
 
 class BayesPointClassifier(ClassifierMixin, BaseEstimator):
@@ -29,7 +30,11 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
     description = '(Abstract) Bayes Point Classifier'
 
     def __init__(self, T=3, verbose=0, threshold_acc=0.99, target_class=None, pool_size='auto', find_best_k=True,
-                 random_state=None, encoding='av', to_string=True, **kwargs):
+                 random_state=None, encoding='av', to_string=True, cachedir='cachedir', prune_strategy=None,
+                 max_rules=None,
+                 **kwargs):
+        self.max_rules = max_rules
+        self.prune_strategy = prune_strategy
         self.encoding = encoding
         self.random_state = random_state
         self.find_best_k = find_best_k
@@ -50,6 +55,9 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
         self.verbose = verbose
         self.kwargs = kwargs
         self.to_string = to_string
+        self.cachedir = cachedir
+
+        self.memory = Memory(location=cachedir, verbose=0)
 
     def base_method(self, X, y, target_class):
         '''
@@ -107,7 +115,8 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
     def execute_multiple_runs(self, X, y, target_class, T, pool_size: Union[str, int] = 1, starting_seed=None,
                               **kwargs):
         if starting_seed is None:
-            starting_seed = np.random.randint(0, 1000000)
+            raise ValueError("since i'm debugging, i don't want this")
+            # starting_seed = np.random.randint(0, 1000000)
 
         Xs = []
         ys = []
@@ -127,22 +136,28 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
                 Xs.append(X_perm)
                 ys.append(y_perm)
 
+        @self.memory.cache
+        def cached_base_method(X, y, target_class):
+            return self.base_method(X, y, target_class)
+
+        method = cached_base_method  # if self.memory is not None else self.base_method
+
         outputs = []
         if pool_size == 'auto':
             t = time.time()
-            outputs = [self.base_method(Xs[0], ys[0], target_class)]
+            outputs = [method(Xs[0], ys[0], target_class)]
             if time.time() - t > 1:
                 pool_size = max(multiprocessing.cpu_count() - 1, 1)
                 outputs.extend(self.run_with_pool(Xs[1:], ys[1:], target_class, pool_size=pool_size))
             else:
                 pool_size = 1
-                outputs.extend([self.base_method(X, y, target_class) for X, y in zip(Xs[1:], ys[1:])])
+                outputs.extend([method(X, y, target_class) for X, y in zip(Xs[1:], ys[1:])])
 
         elif pool_size > 1:
             outputs.extend(self.run_with_pool(Xs, ys, target_class, pool_size=pool_size))
 
         else:
-            outputs.extend([self.base_method(X, y, target_class) for X, y in zip(Xs, ys)])
+            outputs.extend([method(X, y, target_class) for X, y in zip(Xs, ys)])
 
         return outputs
 
@@ -154,6 +169,9 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
             outputs = p.starmap(self.base_method, zip(Xs, ys, repeat(target_class)))
 
         return outputs
+
+    # def transform(self, X):
+    #     return X, self
 
     def fit(self, X, y, skip_checks=False):
         if not skip_checks:
@@ -185,6 +203,8 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
 
             self.rule_sets_ = self.execute_multiple_runs(X, y, self.target_class, T=self.T, pool_size=self.pool_size,
                                                          starting_seed=self.random_state)
+
+            self.prune_rule_sets()
 
             self.counter_ = self.alpha_representation()
 
@@ -462,3 +482,12 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
     #
     #     rulesets = clf.base_method(X, y, target_class=self.target_class_)
     #     print(rulesets)
+
+    def prune_rule_sets(self):
+        if self.max_rules is None:
+            return
+        if self.max_rules is not None:
+            for i, rule_set in enumerate(self.rule_sets_):
+                if len(rule_set) > self.max_rules:
+                    # possibly, add different pruning strategies
+                    self.rule_sets_[i] = rule_set[:self.max_rules]

@@ -22,7 +22,7 @@ from bpllib.utils import remove_inconsistent_data
 
 if __name__ == '__main__':
 
-    output_file = 'find-rs-cv4.pkl'
+    output_file = 'find-rs-cv6.pkl'
 
     # check if file exists
     if os.path.exists(output_file):
@@ -89,8 +89,6 @@ if __name__ == '__main__':
         },
         'FindRSGridSearch': {
             'T': 100,
-            'tol': 1,
-            'n_bins': 100
         },
         'RIPPER': {
             'T': 100
@@ -199,7 +197,7 @@ if __name__ == '__main__':
     param_grid_find_rs = {
         'tol': [0, 1, 2],
         # 'n_bins': [3, 10, 30, 100],
-        'n_bins': [5, 10, 20, 40, 80],
+        'max_rules': [5, 10, 20, 40, 80],
         # 'random_state': [42],
     }
 
@@ -229,7 +227,7 @@ if __name__ == '__main__':
         cv = KFold(n_splits=5, shuffle=False)  # True, random_state=kwargs['random_state'])
         grid_search_find_rs = GridSearchCV(
             estimator=FindRsClassifier(**kwargs),
-            param_grid=param_grid_find_rs, cv=cv, n_jobs=2, error_score='raise',
+            param_grid=param_grid_find_rs, cv=cv, n_jobs=1, error_score='raise',
             verbose=10,
             refit=True)
         return grid_search_find_rs

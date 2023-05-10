@@ -1,7 +1,7 @@
 #!/bin/bash
 
 mkdir generated
-filename="find-rs-100-ripper-100-inc-merged.pkl"
+filename="find-rs-cv4-merged-no-model.pkl"  # "find-rs-100-ripper-100-inc-merged.pkl"
 # Run a.py and save output to a.txt
 python baseline_bp_comparison_3.py accuracy ../$filename >generated/baseline_bp_comparison_acc.tex
 python baseline_bp_comparison_3.py f1 ../$filename >generated/baseline_bp_comparison_f1.tex
