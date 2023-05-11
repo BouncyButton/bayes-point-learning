@@ -90,13 +90,13 @@ def FindRSGridSearch(**kwargs):
     param_grid_find_rs = {
         'tol': [0],  # , 1, 2],
         # 'n_bins': [3, 10, 30, 100],
-        'max_rules': [5, 10]  # , 20, 40] #, 80],
+        'max_rules': [5, 10, 20, 40, 80]  # , 20, 40] #, 80],
         # 'random_state': [42],
     }
 
     import numpy as np
     # Set up the k-fold cross-validation
-    cv = KFold(n_splits=5, shuffle=False)  # True, random_state=kwargs['random_state'])
+    cv = KFold(n_splits=6, shuffle=False)  # True, random_state=kwargs['random_state'])
     grid_search_find_rs = GridSearchCV(
         estimator=FindRsClassifier(**kwargs),
         param_grid=param_grid_find_rs, cv=cv, n_jobs=1, error_score='raise',

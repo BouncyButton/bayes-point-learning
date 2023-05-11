@@ -21,6 +21,13 @@ from bpllib._bp import callable_rules_bo, callable_rules_bp
 from .utils import resample
 from joblib import Memory
 
+memory = Memory(location='cachedir', verbose=0)
+
+
+@memory.cache
+def cached_base_method(cls, X, y, target_class, **kwargs):
+    return cls.base_method(X, y, target_class, **kwargs)
+
 
 class BayesPointClassifier(ClassifierMixin, BaseEstimator):
     '''
@@ -59,7 +66,8 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
 
         self.memory = Memory(location=cachedir, verbose=0)
 
-    def base_method(self, X, y, target_class):
+    @classmethod
+    def base_method(cls, X, y, target_class, **kwargs):
         '''
         This method should be implemented by the subclass.
 
@@ -69,6 +77,9 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
 
         :return: a rule set.
         '''
+        raise NotImplementedError()
+
+    def base_method_kwargs(self):
         raise NotImplementedError()
 
     def alpha_representation(self):
@@ -113,7 +124,11 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
         return X, y
 
     def execute_multiple_runs(self, X, y, target_class, T, pool_size: Union[str, int] = 1, starting_seed=None,
-                              **kwargs):
+                              base_method_kwargs=None):
+
+        if base_method_kwargs is None:
+            raise ValueError("since i'm debugging, i don't want this")
+
         if starting_seed is None:
             raise ValueError("since i'm debugging, i don't want this")
             # starting_seed = np.random.randint(0, 1000000)
@@ -136,13 +151,11 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
                 Xs.append(X_perm)
                 ys.append(y_perm)
 
-        @self.memory.cache
-        def cached_base_method(X, y, target_class):
-            return self.base_method(X, y, target_class)
-
-        method = cached_base_method  # if self.memory is not None else self.base_method
+        method = partial(cached_base_method, self.__class__,
+                         **base_method_kwargs)  # if self.memory is not None else self.base_method
 
         outputs = []
+        # pool_size = 1  # todo remove
         if pool_size == 'auto':
             t = time.time()
             outputs = [method(Xs[0], ys[0], target_class)]
@@ -201,8 +214,11 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
             self.target_class_ = self.target_class
             self.other_class_ = (set(self.classes_) - {self.target_class_}).pop() if len(self.classes_) > 1 else None
 
+            base_method_kwargs = self.base_method_kwargs()
+
             self.rule_sets_ = self.execute_multiple_runs(X, y, self.target_class, T=self.T, pool_size=self.pool_size,
-                                                         starting_seed=self.random_state)
+                                                         starting_seed=self.random_state,
+                                                         base_method_kwargs=base_method_kwargs)
 
             self.prune_rule_sets()
 

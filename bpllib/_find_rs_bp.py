@@ -51,22 +51,26 @@ class FindRsClassifier(BayesPointClassifier):
                          prune_strategy=prune_strategy,
                          max_rules=max_rules)
 
-    def base_method(self, X, y, target_class):
+    def base_method_kwargs(self):
+        return {'put_negative_on_top': self.put_negative_on_top,
+                'tol': self.tol,
+                'verbose': self.verbose}
+
+    @classmethod
+    def base_method(cls, X, y, target_class, tol=0, put_negative_on_top=False, verbose=0):
         '''
         This method implements the find-rs algorithm.
         '''
-        tol = self.tol
-        put_negative_on_top = self.put_negative_on_top
         train_p = list(X[y == target_class])
         train_n = list(X[y != target_class])
 
         D, B, k = [], [], 0
 
         while len(train_p) > 0:
-            if self.verbose > 5:
+            if verbose > 5:
                 print("{0} ({1:.2%})".format(len(train_p), 1 - len(train_p) / (y == target_class).sum()))
 
-            # if self.n_bins is not None and len(B) >= 2 * self.n_bins:
+            # if self.n_bins is not None and len(B) >= self.n_bins:
             #    break
             # i believe that this will lead to worse performance down the line
             # since pruning increases effectiveness
@@ -94,11 +98,12 @@ class FindRsClassifier(BayesPointClassifier):
                         train_n = np.delete(train_n, not_covered[0] + 1, axis=0)
 
             train_p = incompatibles
-        D, B = self._prune(D, B)
+        D, B = FindRsClassifier._prune(D, B)
         # right now i won't use the B array, but it could be useful in the future
         return D
 
-    def _prune(self, D, B):
+    @classmethod
+    def _prune(cls, D, B, verbose=0):
         old_len = len(D)
 
         i = 0
@@ -122,7 +127,7 @@ class FindRsClassifier(BayesPointClassifier):
 
         if old_len > len(D):
             pass
-            if self.verbose > 5:
+            if verbose > 5:
                 print("pruned from " + str(old_len) + " to " + str(len(D)) + " rules")
 
         # trim to n_bins if still too long

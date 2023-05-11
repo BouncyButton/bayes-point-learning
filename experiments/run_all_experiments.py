@@ -22,7 +22,7 @@ from bpllib.utils import remove_inconsistent_data
 
 if __name__ == '__main__':
 
-    output_file = 'find-rs-cv6.pkl'
+    output_file = 'find-rs-cv7.pkl'
 
     # check if file exists
     if os.path.exists(output_file):
