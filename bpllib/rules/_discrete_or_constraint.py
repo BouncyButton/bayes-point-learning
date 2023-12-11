@@ -7,6 +7,8 @@ class DiscreteOrConstraint(Constraint):
         self.values = set(values)
 
     def __eq__(self, other):
+        if not isinstance(other, DiscreteOrConstraint):
+            return False
         return super().__eq__(other) and self.values == other.values
 
     def __len__(self):

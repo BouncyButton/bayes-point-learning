@@ -1,0 +1,124 @@
+% created by create_generalization_plots.py
+
+    \begin{tikzpicture}
+        \begin{axis}[
+          xmin=0, xmax=1,
+          ymin=0.698295764328653, ymax=0.928884039994008,
+          ymajorgrids=true,
+          grid style=dashed,
+          width = 0.45\columnwidth,
+          height = 0.35\columnwidth,
+          legend pos=north west,
+          xlabel={Generalization probability},
+            ylabel={F1},
+          title={AUDIO }
+        ]
+        \addlegendimage{blue, line width=1pt}
+    \addlegendentry{av}
+ \addlegendimage{purple, line width=1pt}
+    \addlegendentry{oh}
+    
+        \addplot[name path=AUDIO_av_down,color=blue] coordinates {(0,0.7325500240815217)(0.25,0.753948588524255)(0.5,0.7885727497096111)(0.75,0.8089165017750866)(0.9,0.8086171786113393)(1,0.7970875911115017)};
+\addplot[name path=AUDIO_av,color=blue!70] coordinates {(0,0.7987147026642825)(0.25,0.8149927103708617)(0.5,0.8427076938001308)(0.75,0.8609323258195438)(0.9,0.8610797181097932)(1,0.851275787704359)};
+\addplot[name path=AUDIO_av_top,color=blue!70] coordinates {(0,0.8648793812470432)(0.25,0.8760368322174685)(0.5,0.8968426378906504)(0.75,0.9129481498640011)(0.9,0.9135422576082471)(1,0.9054639842972162)};
+\addplot[blue!50,fill opacity=0.5] fill between[of=AUDIO_av_top and AUDIO_av_down];\addplot[name path=AUDIO_ohe_down,color=purple] coordinates {(0,0.698295764328653)(0.25,0.7705653505444436)(0.5,0.8017916177645917)(0.75,0.7688297549776907)(0.9,0.7684930192685904)(1,0.7498673504884646)};
+\addplot[name path=AUDIO_ohe,color=purple!70] coordinates {(0,0.7745383981098265)(0.25,0.8215266479552195)(0.5,0.8526414062128346)(0.75,0.8328922664636949)(0.9,0.8345403802546658)(1,0.8126530612244898)};
+\addplot[name path=AUDIO_ohe_top,color=purple!70] coordinates {(0,0.850781031891)(0.25,0.8724879453659953)(0.5,0.9034911946610774)(0.75,0.896954777949699)(0.9,0.9005877412407413)(1,0.8754387719605149)};
+\addplot[purple!50,fill opacity=0.5] fill between[of=AUDIO_ohe_top and AUDIO_ohe_down];
+ \legend{av, oh}
+    \end{axis}
+    \end{tikzpicture}
+        
+ & 
+
+    \begin{tikzpicture}
+        \begin{axis}[
+          xmin=0, xmax=1,
+          ymin=0.08855093405981165, ymax=0.7370864184000765,
+          ymajorgrids=true,
+          grid style=dashed,
+          width = 0.45\columnwidth,
+          height = 0.35\columnwidth,
+          legend pos=north west,
+          xlabel={Generalization probability},
+            ylabel={F1},
+          title={MONKS2 }
+        ]
+        \addlegendimage{blue, line width=1pt}
+    \addlegendentry{av}
+ \addlegendimage{purple, line width=1pt}
+    \addlegendentry{oh}
+    
+        \addplot[name path=MONKS2_av_down,color=blue] coordinates {(0,0.09515090010601279)(0.25,0.1261206231470942)(0.5,0.1645264492173811)(0.75,0.21385102492310548)(0.9,0.2256401655500053)(1,0.22644632395682252)};
+\addplot[name path=MONKS2_av,color=blue!70] coordinates {(0,0.1300602485413362)(0.25,0.16175106772838732)(0.5,0.20603576369890564)(0.75,0.24848812170240278)(0.9,0.2604299280361852)(1,0.2664186839192681)};
+\addplot[name path=MONKS2_av_top,color=blue!70] coordinates {(0,0.16496959697665958)(0.25,0.19738151230968043)(0.5,0.24754507818043017)(0.75,0.2831252184817001)(0.9,0.2952196905223651)(1,0.3063910438817137)};
+\addplot[blue!50,fill opacity=0.5] fill between[of=MONKS2_av_top and MONKS2_av_down];\addplot[name path=MONKS2_ohe_down,color=purple] coordinates {(0,0.5858237126689123)(0.25,0.568225377717953)(0.5,0.5788063226356669)(0.75,0.6200848395672544)(0.9,0.6153098696000675)(1,0.6353031366391099)};
+\addplot[name path=MONKS2_ohe,color=purple!70] coordinates {(0,0.6263080988352918)(0.25,0.6146502515756523)(0.5,0.6337855333994886)(0.75,0.6632922318588413)(0.9,0.6677874234145463)(1,0.6821072076362548)};
+\addplot[name path=MONKS2_ohe_top,color=purple!70] coordinates {(0,0.6667924850016713)(0.25,0.6610751254333517)(0.5,0.6887647441633103)(0.75,0.7064996241504283)(0.9,0.7202649772290252)(1,0.7289112786333997)};
+\addplot[purple!50,fill opacity=0.5] fill between[of=MONKS2_ohe_top and MONKS2_ohe_down];
+ \legend{av, oh}
+    \end{axis}
+    \end{tikzpicture}
+        
+ \\[2em] 
+
+    \begin{tikzpicture}
+        \begin{axis}[
+          xmin=0, xmax=1,
+          ymin=0.8291133669277861, ymax=0.9405823445627529,
+          ymajorgrids=true,
+          grid style=dashed,
+          width = 0.45\columnwidth,
+          height = 0.35\columnwidth,
+          legend pos=north west,
+          xlabel={Generalization probability},
+            ylabel={F1},
+          title={VOTE }
+        ]
+        \addlegendimage{blue, line width=1pt}
+    \addlegendentry{av}
+ \addlegendimage{purple, line width=1pt}
+    \addlegendentry{oh}
+    
+        \addplot[name path=VOTE_av_down,color=blue] coordinates {(0,0.8445249957486833)(0.25,0.8547418024135147)(0.5,0.8715628513621054)(0.75,0.8765774436327407)(0.9,0.8742440882915684)(1,0.8668344490020439)};
+\addplot[name path=VOTE_av,color=blue!70] coordinates {(0,0.8821988725852157)(0.25,0.888427566141667)(0.5,0.8966237234621363)(0.75,0.9003584508836359)(0.9,0.9029084677262206)(1,0.9000273393198173)};
+\addplot[name path=VOTE_av_top,color=blue!70] coordinates {(0,0.919872749421748)(0.25,0.9221133298698192)(0.5,0.9216845955621671)(0.75,0.924139458134531)(0.9,0.9315728471608727)(1,0.9332202296375907)};
+\addplot[blue!50,fill opacity=0.5] fill between[of=VOTE_av_top and VOTE_av_down];\addplot[name path=VOTE_ohe_down,color=purple] coordinates {(0,0.8331297475092837)(0.25,0.8565549102995819)(0.5,0.881282555429321)(0.75,0.8801585628340785)(0.9,0.8867527539390186)(1,0.8847753687796743)};
+\addplot[name path=VOTE_ohe,color=purple!70] coordinates {(0,0.8575198595115777)(0.25,0.8740699636497726)(0.5,0.892493750110568)(0.75,0.90856505541787)(0.9,0.9099068936928157)(1,0.907916659984737)};
+\addplot[name path=VOTE_ohe_top,color=purple!70] coordinates {(0,0.8819099715138717)(0.25,0.8915850169999634)(0.5,0.903704944791815)(0.75,0.9369715480016616)(0.9,0.9330610334466128)(1,0.9310579511897997)};
+\addplot[purple!50,fill opacity=0.5] fill between[of=VOTE_ohe_top and VOTE_ohe_down];
+ \legend{av, oh}
+    \end{axis}
+    \end{tikzpicture}
+        
+ & 
+
+    \begin{tikzpicture}
+        \begin{axis}[
+          xmin=0, xmax=1,
+          ymin=0.7034184376085484, ymax=0.8028584547035361,
+          ymajorgrids=true,
+          grid style=dashed,
+          width = 0.45\columnwidth,
+          height = 0.35\columnwidth,
+          legend pos=north west,
+          xlabel={Generalization probability},
+            ylabel={F1},
+          title={COMPAS }
+        ]
+        \addlegendimage{blue, line width=1pt}
+    \addlegendentry{av}
+ \addlegendimage{purple, line width=1pt}
+    \addlegendentry{oh}
+    
+        \addplot[name path=COMPAS_av_down,color=blue] coordinates {(0,0.7078860923417334)(0.25,0.7284755987668818)(0.5,0.7423368776587722)(0.75,0.7572180125697889)(0.9,0.7571869346208964)(1,0.7617171052791094)};
+\addplot[name path=COMPAS_av,color=blue!70] coordinates {(0,0.7247728637961315)(0.25,0.7462307204899049)(0.5,0.7636913038463553)(0.75,0.777875650093218)(0.9,0.7780602724863254)(1,0.781445762628029)};
+\addplot[name path=COMPAS_av_top,color=blue!70] coordinates {(0,0.7416596352505296)(0.25,0.763985842212928)(0.5,0.7850457300339384)(0.75,0.7985332876166471)(0.9,0.7989336103517544)(1,0.8011744199769486)};
+\addplot[blue!50,fill opacity=0.5] fill between[of=COMPAS_av_top and COMPAS_av_down];\addplot[name path=COMPAS_ohe_down,color=purple] coordinates {(0,0.716659368339677)(0.25,0.7179500110927638)(0.5,0.72912904884379)(0.75,0.7497083593914188)(0.9,0.7601202427800204)(1,0.76282446223995)};
+\addplot[name path=COMPAS_ohe,color=purple!70] coordinates {(0,0.7293220129094939)(0.25,0.7350061603664356)(0.5,0.7492534232552888)(0.75,0.77012551875189)(0.9,0.7783220376567981)(1,0.782441295343065)};
+\addplot[name path=COMPAS_ohe_top,color=purple!70] coordinates {(0,0.7419846574793109)(0.25,0.7520623096401075)(0.5,0.7693777976667875)(0.75,0.7905426781123611)(0.9,0.7965238325335757)(1,0.8020581284461799)};
+\addplot[purple!50,fill opacity=0.5] fill between[of=COMPAS_ohe_top and COMPAS_ohe_down];
+ \legend{av, oh}
+    \end{axis}
+    \end{tikzpicture}
+        

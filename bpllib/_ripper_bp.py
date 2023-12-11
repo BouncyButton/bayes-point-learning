@@ -15,8 +15,21 @@ class RipperClassifier(BayesPointClassifier):
     '''
     description = 'RIPPER'
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, T=3, verbose=0, threshold_acc=0.99, target_class=None, pool_size='auto', find_best_k=True,
+                 random_state=None, encoding='av', to_string=True,
+                 max_rules=None, bp_verbose=0):
+        super().__init__(T=T,
+                         verbose=verbose,
+                         bp_verbose=bp_verbose,
+                         threshold_acc=threshold_acc,
+                         target_class=target_class,
+                         pool_size=pool_size,
+                         find_best_k=find_best_k,
+                         random_state=random_state,
+                         encoding=encoding,
+                         to_string=to_string,
+                         max_rules=max_rules
+                         )
         # self.use_bootstrap = True  # probably not needed?
 
     def base_method(self, X, y, target_class):

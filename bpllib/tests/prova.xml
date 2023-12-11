@@ -1,0 +1,182 @@
+<GreedyTree>
+    <X4 feature="o" flag="m" p="0.362">
+        <X6 feature="o" flag="m" p="0.347">
+            <X3 feature="o" flag="m" p="0.117">
+                <X7 feature="b" flag="m" p="0.286">1.0</X7>
+                <X7 feature="x" flag="m" p="0.714">0.0</X7>
+            </X3>
+            <X3 feature="b" flag="m" p="0.317">
+                <X2 feature="o" flag="m" p="0.316">0.0</X2>
+                <X2 feature="x" flag="m" p="0.684">
+                    <X0 feature="o" flag="m" p="0.154">
+                        <X7 feature="b" flag="m" p="0.5">1.0</X7>
+                        <X7 feature="x" flag="m" p="0.5">0.0</X7>
+                    </X0>
+                    <X0 feature="b" flag="m" p="0.231">1.0</X0>
+                    <X0 feature="x" flag="m" p="0.615">1.0</X0>
+                </X2>
+            </X3>
+            <X3 feature="x" flag="m" p="0.567">0.0</X3>
+        </X6>
+        <X6 feature="b" flag="m" p="0.121">
+            <X2 feature="o" flag="m" p="0.048">0.0</X2>
+            <X2 feature="b" flag="m" p="0.286">0.0</X2>
+            <X2 feature="x" flag="m" p="0.667">
+                <X8 feature="o" flag="m" p="0.714">
+                    <X0 feature="o" flag="m" p="0.5">0.0</X0>
+                    <X0 feature="x" flag="m" p="0.5">
+                        <X1 feature="o" flag="m" p="0.4">0.0</X1>
+                        <X1 feature="x" flag="m" p="0.6">1.0</X1>
+                    </X0>
+                </X8>
+                <X8 feature="x" flag="m" p="0.286">
+                    <X5 feature="o" flag="m" p="0.25">0.0</X5>
+                    <X5 feature="x" flag="m" p="0.75">1.0</X5>
+                </X8>
+            </X2>
+        </X6>
+        <X6 feature="x" flag="m" p="0.532">
+            <X0 feature="o" flag="m" p="0.337">
+                <X8 feature="o" flag="m" p="0.484">0.0</X8>
+                <X8 feature="b" flag="m" p="0.097">0.0</X8>
+                <X8 feature="x" flag="m" p="0.419">
+                    <X7 feature="o" flag="m" p="0.308">0.0</X7>
+                    <X7 feature="b" flag="m" p="0.231">
+                        <X5 feature="o" flag="m" p="0.333">0.0</X5>
+                        <X5 feature="x" flag="m" p="0.667">1.0</X5>
+                    </X7>
+                    <X7 feature="x" flag="m" p="0.462">1.0</X7>
+                </X8>
+            </X0>
+            <X0 feature="b" flag="m" p="0.217">
+                <X8 feature="o" flag="m" p="0.15">0.0</X8>
+                <X8 feature="b" flag="m" p="0.3">0.0</X8>
+                <X8 feature="x" flag="m" p="0.55">
+                    <X7 feature="o" flag="m" p="0.091">0.0</X7>
+                    <X7 feature="b" flag="m" p="0.182">
+                        <X1 feature="o" flag="m" p="0.5">1.0</X1>
+                        <X1 feature="b" flag="m" p="0.5">0.0</X1>
+                    </X7>
+                    <X7 feature="x" flag="m" p="0.727">1.0</X7>
+                </X8>
+            </X0>
+            <X0 feature="x" flag="m" p="0.446">
+                <X3 feature="o" flag="m" p="0.195">
+                    <X5 feature="o" flag="m" p="0.625">0.0</X5>
+                    <X5 feature="b" flag="m" p="0.25">1.0</X5>
+                    <X5 feature="x" flag="m" p="0.125">0.0</X5>
+                </X3>
+                <X3 feature="b" flag="m" p="0.195">
+                    <X7 feature="o" flag="m" p="0.25">0.0</X7>
+                    <X7 feature="x" flag="m" p="0.75">1.0</X7>
+                </X3>
+                <X3 feature="x" flag="m" p="0.61">1.0</X3>
+            </X0>
+        </X6>
+    </X4>
+    <X4 feature="b" flag="m" p="0.144">
+        <X0 feature="o" flag="m" p="0.29">
+            <X8 feature="b" flag="m" p="0.15">0.0</X8>
+            <X8 feature="x" flag="m" p="0.85">
+                <X6 feature="o" flag="m" p="0.412">
+                    <X1 feature="b" flag="m" p="0.286">1.0</X1>
+                    <X1 feature="x" flag="m" p="0.714">0.0</X1>
+                </X6>
+                <X6 feature="b" flag="m" p="0.059">0.0</X6>
+                <X6 feature="x" flag="m" p="0.529">
+                    <X3 feature="o" flag="m" p="0.778">1.0</X3>
+                    <X3 feature="b" flag="m" p="0.222">
+                        <X1 feature="o" flag="m" p="0.5">0.0</X1>
+                        <X1 feature="x" flag="m" p="0.5">1.0</X1>
+                    </X3>
+                </X6>
+            </X8>
+        </X0>
+        <X0 feature="b" flag="m" p="0.203">
+            <X8 feature="o" flag="m" p="0.357">0.0</X8>
+            <X8 feature="x" flag="m" p="0.643">1.0</X8>
+        </X0>
+        <X0 feature="x" flag="m" p="0.507">
+            <X2 feature="o" flag="m" p="0.286">
+                <X6 feature="o" flag="m" p="0.1">0.0</X6>
+                <X6 feature="x" flag="m" p="0.9">
+                    <X1 feature="o" flag="m" p="0.778">1.0</X1>
+                    <X1 feature="b" flag="m" p="0.111">0.0</X1>
+                    <X1 feature="x" flag="m" p="0.111">1.0</X1>
+                </X6>
+            </X2>
+            <X2 feature="b" flag="m" p="0.086">1.0</X2>
+            <X2 feature="x" flag="m" p="0.629">1.0</X2>
+        </X0>
+    </X4>
+    <X4 feature="x" flag="m" p="0.494">
+        <X2 feature="o" flag="m" p="0.386">
+            <X1 feature="o" flag="m" p="0.385">
+                <X0 feature="o" flag="m" p="0.429">0.0</X0>
+                <X0 feature="b" flag="m" p="0.2">1.0</X0>
+                <X0 feature="x" flag="m" p="0.371">
+                    <X7 feature="o" flag="m" p="0.154">1.0</X7>
+                    <X7 feature="b" flag="m" p="0.692">1.0</X7>
+                    <X7 feature="x" flag="m" p="0.154">
+                        <X6 feature="b" flag="m" p="0.5">1.0</X6>
+                        <X6 feature="x" flag="m" p="0.5">0.0</X6>
+                    </X7>
+                </X0>
+            </X1>
+            <X1 feature="b" flag="m" p="0.231">
+                <X8 feature="o" flag="m" p="0.571">
+                    <X5 feature="o" flag="m" p="0.75">0.0</X5>
+                    <X5 feature="b" flag="m" p="0.083">1.0</X5>
+                    <X5 feature="x" flag="m" p="0.167">1.0</X5>
+                </X8>
+                <X8 feature="b" flag="m" p="0.143">1.0</X8>
+                <X8 feature="x" flag="m" p="0.286">1.0</X8>
+            </X1>
+            <X1 feature="x" flag="m" p="0.385">
+                <X7 feature="o" flag="m" p="0.086">
+                    <X0 feature="o" flag="m" p="0.333">1.0</X0>
+                    <X0 feature="x" flag="m" p="0.667">0.0</X0>
+                </X7>
+                <X7 feature="b" flag="m" p="0.057">0.0</X7>
+                <X7 feature="x" flag="m" p="0.857">1.0</X7>
+            </X1>
+        </X2>
+        <X2 feature="b" flag="m" p="0.225">
+            <X8 feature="o" flag="m" p="0.34">
+                <X7 feature="o" flag="m" p="0.222">
+                    <X0 feature="b" flag="m" p="0.5">1.0</X0>
+                    <X0 feature="x" flag="m" p="0.5">0.0</X0>
+                </X7>
+                <X7 feature="x" flag="m" p="0.778">1.0</X7>
+            </X8>
+            <X8 feature="b" flag="m" p="0.094">
+                <X3 feature="o" flag="m" p="0.2">0.0</X3>
+                <X3 feature="x" flag="m" p="0.8">1.0</X3>
+            </X8>
+            <X8 feature="x" flag="m" p="0.566">1.0</X8>
+        </X2>
+        <X2 feature="x" flag="m" p="0.39">
+            <X6 feature="o" flag="m" p="0.391">
+                <X0 feature="o" flag="m" p="0.417">
+                    <X3 feature="o" flag="m" p="0.667">0.0</X3>
+                    <X3 feature="b" flag="m" p="0.267">
+                        <X8 feature="o" flag="m" p="0.5">0.0</X8>
+                        <X8 feature="x" flag="m" p="0.5">1.0</X8>
+                    </X3>
+                    <X3 feature="x" flag="m" p="0.067">0.0</X3>
+                </X0>
+                <X0 feature="b" flag="m" p="0.278">
+                    <X1 feature="o" flag="m" p="0.4">1.0</X1>
+                    <X1 feature="b" flag="m" p="0.3">0.0</X1>
+                    <X1 feature="x" flag="m" p="0.3">1.0</X1>
+                </X0>
+                <X0 feature="x" flag="m" p="0.306">
+                    <X8 feature="o" flag="m" p="0.727">0.0</X8>
+                    <X8 feature="x" flag="m" p="0.273">1.0</X8>
+                </X0>
+            </X6>
+            <X6 feature="b" flag="m" p="0.098">1.0</X6>
+            <X6 feature="x" flag="m" p="0.511">1.0</X6>
+        </X2>
+    </X4>
+</GreedyTree>

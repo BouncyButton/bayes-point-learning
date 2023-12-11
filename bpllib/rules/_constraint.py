@@ -21,6 +21,9 @@ class Constraint:
     def __hash__(self):
         raise NotImplementedError()
 
+    def __lt__(self, other):
+        return self.index < other.index
+
     def satisfied(self, x):
         '''
         Checks if a constraint is satisfied.

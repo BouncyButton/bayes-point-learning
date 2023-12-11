@@ -1,5 +1,7 @@
 import numpy as np
 
+from bpllib.utils import get_av_idx_and_val
+
 
 class Rule:
     '''
@@ -10,6 +12,23 @@ class Rule:
     def __init__(self, constraints: dict):
         self.constraints = constraints  # was set()
         self.columns = None
+
+    def __sub__(self, other):
+        '''
+        Returns the disjunction of two rules
+        Parameters
+        ----------
+        other: the other rule
+
+        -------
+
+        '''
+        new_constraints = {}
+        new_indexes = set(self.constraints.keys()).difference(set(other.constraints.keys()))
+        for index in new_indexes:
+            c = self.constraints.get(index)
+            new_constraints[index] = c
+        return Rule(new_constraints)
 
     def __mul__(self, other):
         '''
@@ -37,6 +56,13 @@ class Rule:
                     new_constraints[index] = c
         return Rule(new_constraints)
 
+    def __lt__(self, other):
+        # placeholders for now
+        return len(self.constraints) < len(other.constraints)
+
+    def __gt__(self, other):
+        return len(self.constraints) > len(other.constraints)
+
     def generalize(self, x: np.array):
         '''
         Generalizes a rule w.r.t. a given input.
@@ -56,6 +82,23 @@ class Rule:
                 new_constraints[idx] = new_constraint
         return Rule(new_constraints)
 
+    def str_with_ohe(self, enc, monks=False):
+        output = []
+        for constraint in sorted(self.constraints.values()):
+            idx = constraint.index
+            if constraint.value == '0.0':
+                relationship = '$\\neq$'
+            elif constraint.value == '1.0':
+                relationship = '='
+            else:
+                raise ValueError('???')
+            av_idx, val = get_av_idx_and_val(enc, idx)
+            if monks:
+                output.append(f'a{av_idx + 1} {relationship} {val}')
+            else:
+                output.append(f'X[{av_idx}] {relationship} {val}')
+        return " $\land$ ".join(output)
+
     def covers(self, x: np.array):
         '''
         Checks if the current rule covers an input example
@@ -72,7 +115,7 @@ class Rule:
                 return False
         return True
 
-    def covers_any(self, data: np.array, tol=0):
+    def covers_any(self, data: np.array, tol=None, bin_purity=1.0, n_positive_covered=1):
         '''
         Checks if any data point in the data array is covered by this rule.
         Parameters
@@ -83,6 +126,8 @@ class Rule:
         -------
 
         '''
+        if tol is None:
+            tol = int((1 - bin_purity) * n_positive_covered)
         not_covered = []
         for i, data_point in enumerate(data):
             if self.covers(data_point):
@@ -130,10 +175,13 @@ class Rule:
     def __hash__(self):
         return hash(tuple(sorted(self.constraints.items())))
 
-    def str_with_column_names(self, columns):
-        self.columns = columns
-        reprs = []
-        for c in self.constraints.values():
-            column = columns[c.index]
-            reprs.append(f"{column}={c.value}")
-        return " ^ ".join(reprs)
+    def str_with_column_names(self, columns, encoding='av', monks=False, enc=None):
+        if encoding == 'av':
+            self.columns = columns
+            reprs = []
+            for c in self.constraints.values():
+                column = columns[c.index]
+                reprs.append(f"{column}={c.value}")
+            return " ^ ".join(reprs)
+        elif encoding == 'ohe':
+            return self.str_with_ohe(enc, monks=monks)

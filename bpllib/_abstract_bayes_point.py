@@ -1,7 +1,10 @@
 import copy
+import heapq
+import math
 import multiprocessing
 import random
 import time
+from collections import Counter
 from itertools import repeat
 import warnings
 from functools import partial
@@ -18,6 +21,7 @@ from sklearn.utils.validation import check_is_fitted, check_array
 from tqdm import tqdm
 
 from bpllib._bp import callable_rules_bo, callable_rules_bp
+from bpllib.rules._rule import Rule
 from .utils import resample
 from joblib import Memory
 
@@ -30,11 +34,13 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
     description = '(Abstract) Bayes Point Classifier'
 
     def __init__(self, T=3, verbose=0, threshold_acc=0.99, target_class=None, pool_size='auto', find_best_k=True,
-                 random_state=None, encoding='av', to_string=True, cachedir='cachedir', prune_strategy=None,
-                 max_rules=None,
+                 random_state=None, encoding='av', to_string=True,
+                 max_rules=None, bp_verbose=0,
                  **kwargs):
+        self.cond_entropy_dict_ = dict()
+        self.cond_entropy_alpha_dict_ = dict()
         self.max_rules = max_rules
-        self.prune_strategy = prune_strategy
+        self.bp_verbose = bp_verbose
         self.encoding = encoding
         self.random_state = random_state
         self.find_best_k = find_best_k
@@ -43,7 +49,7 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
         self.T = T
         self.suggested_k_ = None
         self.counter_ = None
-        self.bins_ = None
+        self.bins_ = []
         self.other_class_ = None
         self.target_class_ = None
         self.n_features_in_ = None
@@ -55,9 +61,8 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
         self.verbose = verbose
         self.kwargs = kwargs
         self.to_string = to_string
-        self.cachedir = cachedir
-
-        self.memory = Memory(location=cachedir, verbose=0)
+        self.cond_entropy_ = []
+        self.cond_entropy_alpha_ = []
 
     def base_method(self, X, y, target_class):
         '''
@@ -136,28 +141,30 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
                 Xs.append(X_perm)
                 ys.append(y_perm)
 
-        @self.memory.cache
-        def cached_base_method(X, y, target_class):
-            return self.base_method(X, y, target_class)
-
-        method = cached_base_method  # if self.memory is not None else self.base_method
+        # method = partial(self.base_method, **kwargs)
 
         outputs = []
         if pool_size == 'auto':
             t = time.time()
-            outputs = [method(Xs[0], ys[0], target_class)]
+            outputs = [self.base_method(Xs[0], ys[0], target_class)]
             if time.time() - t > 1:
                 pool_size = max(multiprocessing.cpu_count() - 1, 1)
                 outputs.extend(self.run_with_pool(Xs[1:], ys[1:], target_class, pool_size=pool_size))
             else:
                 pool_size = 1
-                outputs.extend([method(X, y, target_class) for X, y in zip(Xs[1:], ys[1:])])
+                outputs.extend([self.base_method(X, y, target_class) for X, y in zip(Xs[1:], ys[1:])])
 
         elif pool_size > 1:
             outputs.extend(self.run_with_pool(Xs, ys, target_class, pool_size=pool_size))
 
         else:
-            outputs.extend([method(X, y, target_class) for X, y in zip(Xs, ys)])
+            outputs.extend([self.base_method(X, y, target_class) for X, y in zip(Xs, ys)])
+
+        if len(outputs) > 0:
+            if isinstance(outputs[0], tuple):
+                bins = [o[1] for o in outputs]
+                outputs = [o[0] for o in outputs]
+                self.bins_ = bins
 
         return outputs
 
@@ -165,8 +172,11 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
         if self.verbose > 5:
             print("Using multiprocessing with {} workers".format(pool_size))
 
-        with Pool(pool_size) as p:
-            outputs = p.starmap(self.base_method, zip(Xs, ys, repeat(target_class)))
+        with multiprocessing.Pool(pool_size) as p:
+            outputs = []
+            for output in p.starmap(self.base_method, tqdm(zip(Xs, ys, repeat(target_class)), total=len(Xs),
+                                                           disable=self.bp_verbose == 0)):
+                outputs.append(output)
 
         return outputs
 
@@ -204,9 +214,13 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
             self.rule_sets_ = self.execute_multiple_runs(X, y, self.target_class, T=self.T, pool_size=self.pool_size,
                                                          starting_seed=self.random_state)
 
+            # find-rs prunes its rule by passing max_rules
             self.prune_rule_sets()
 
             self.counter_ = self.alpha_representation()
+            self.calculate_cond_entropy(X, y)
+            self.simplify_onehot_encoded_rulesets()
+
 
         else:
             current_subclass = type(self)
@@ -384,6 +398,169 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
                              if self.predict_one_with_best_k(x, most_freq_rules, gamma_k, self.T)
                              else self.other_class_ for x in X])
 
+        if len(self.classes_) == 2 and strategy == 'best-k-no-weights':
+            n_rules = kwargs.get('n_rules', self.suggested_k_)
+            if n_rules is None:
+                raise ValueError('call compute_suggested_k_faster before using best-k strategy')
+            most_freq_rules = self.counter_.most_common(n_rules)
+            alpha_rules = sum(self.counter_.values())
+            alpha_k_rules = sum([alpha for r, alpha in self.counter_.most_common(n_rules)])
+            gamma_k = alpha_k_rules / alpha_rules
+
+            return np.array([self.target_class_
+                             if any([rule.covers(x) for rule, _ in most_freq_rules])
+                             else self.other_class_ for x in X])
+
+        if len(self.classes_) == 2 and strategy == 'top-k':
+            n_rules = kwargs.get('n_rules', self.suggested_k_)
+            if n_rules is None:
+                raise ValueError('call compute_suggested_k_faster before using top-k strategy or give n_rules')
+            if hasattr(self, 'cond_entropy_'):
+                return self.predict_by_topk_rules_with_cond_entropy(X, n_rules=n_rules)
+            else:
+                raise ValueError('call calculate_cond_entropy before using top-k strategy')
+
+        if len(self.classes_) == 2 and strategy == 'top-k-alpha':
+            n_rules = kwargs.get('n_rules', self.suggested_k_)
+            if n_rules is None:
+                raise ValueError('call compute_suggested_k_faster before using top-k strategy or give n_rules')
+            if hasattr(self, 'cond_entropy_'):
+                return self.predict_by_topk_rules_with_cond_entropy_alpha(X, n_rules=n_rules)
+            else:
+                raise ValueError('call calculate_cond_entropy before using top-k strategy')
+
+    def predict_by_topk_rules_with_cond_entropy_alpha_no_weight(self, X, n_rules=10):
+        top_n_rules_by_cond_entropy = [rule for _, rule in heapq.nlargest(n_rules, self.cond_entropy_alpha_)]
+
+        return np.array([self.target_class_
+                         if any([rule.covers(x) for rule in top_n_rules_by_cond_entropy]) else self.other_class_
+                         for x in X])
+
+    def predict_by_bestk_rules_with_cond_entropy_then_alpha(self, X, n_rules=10):
+        top_n_rules_by_cond_entropy = [rule for _, rule in heapq.nlargest(n_rules, self.cond_entropy_)]
+        return
+
+    def simplify_onehot_encoded_rule_(self, rule):
+        simplified_constraints = {}
+
+        idx_ohe = 0
+        for cat in self.enc_.categories_:
+            idx_to_keep = None
+            for val in cat:
+                constraint = rule.constraints.get(idx_ohe)
+                idx_ohe += 1
+
+                if constraint is None:
+                    continue
+
+                # i incremented before, but for this i need the index before
+                simplified_constraints.update({idx_ohe - 1: constraint})
+
+                if constraint.value == '1.0':
+                    idx_to_keep = constraint.index
+
+            if idx_to_keep is not None:
+                # if there's a constraint with value 1.0, then we can remove all other constraints
+                # if there are only constraints with value 0.0, then we do nothing :)
+                for i in range(idx_ohe - len(cat), idx_ohe):
+                    if i == idx_to_keep:
+                        continue
+                    else:
+                        if simplified_constraints.get(i) is not None:
+                            del simplified_constraints[i]
+
+        simplified_rule = Rule(constraints=simplified_constraints)
+        return simplified_rule
+
+    def simplify_onehot_encoded_rulesets(self):
+        # well, i forgot to do this before, so i have to do it now
+        if not self.encoding == 'ohe':
+            return
+
+        # Simplify the constraints for one-hot encoded features
+        new_counter = Counter()
+        for rule in self.counter_:
+            freq = self.counter_[rule]
+
+            simplified_rule = self.simplify_onehot_encoded_rule_(rule)
+
+            new_counter.update({simplified_rule: freq})
+        self.counter_ = new_counter
+
+        # Simplify the constraints for one-hot encoded features
+        new_rule_sets = []
+        for ruleset in self.rule_sets_:
+            new_ruleset = []
+
+            for rule in ruleset:
+                simplified_rule = self.simplify_onehot_encoded_rule_(rule)
+                new_ruleset.append(simplified_rule)
+            new_rule_sets.append(new_ruleset)
+        self.rule_sets_ = new_rule_sets
+
+    def predict_by_topk_rules_with_cond_entropy(self, X, n_rules=10):
+        top_n_rules_by_cond_entropy = [rule for _, rule in heapq.nlargest(n_rules, self.cond_entropy_)]
+
+        threshold = (
+                0.5
+                * np.sum([self.cond_entropy_dict_[rule] for rule in top_n_rules_by_cond_entropy])
+                / np.sum([self.cond_entropy_dict_[rule] for rule in self.cond_entropy_dict_])
+        )
+
+        return np.array([self.target_class_
+                         if
+                         np.sum([
+                             rule.covers(x) * self.cond_entropy_dict_[rule]
+                             for rule in top_n_rules_by_cond_entropy])
+                         > threshold
+                         else self.other_class_ for x in X])
+
+    def predict_by_topk_rules_with_cond_entropy_alpha(self, X, n_rules=10):
+        top_n_rules_by_cond_entropy_alpha = [rule for _, rule in heapq.nlargest(n_rules, self.cond_entropy_alpha_)]
+
+        threshold = (
+                0.5
+                * np.sum([self.cond_entropy_alpha_dict_[rule] for rule in top_n_rules_by_cond_entropy_alpha])
+                / np.sum([self.cond_entropy_alpha_dict_[rule] for rule in self.cond_entropy_alpha_dict_])
+        )
+
+        return np.array([self.target_class_
+                         if
+                         np.sum([
+                             rule.covers(x) * self.cond_entropy_alpha_dict_[rule]
+                             for rule in top_n_rules_by_cond_entropy_alpha])
+                         > threshold
+                         else self.other_class_ for x in X])
+
+    def calculate_cond_entropy(self, X, y):
+        import heapq
+
+        for rule in self.counter_:
+            predictions = np.array([rule.covers(x) for x in X])
+            TP = predictions[y == 1].sum()
+            FP = predictions[y == 0].sum()
+            TN = (predictions == 0)[y == 0].sum()
+            FN = (predictions == 0)[y == 1].sum()
+
+            p1 = TP / (TP + FP) if TP + FP > 0 else 0
+            p2 = TN / (TN + FN) if TN + FN > 0 else 0
+            pp = (TP + FP) / (TP + FP + TN + FN)
+
+            if p1 * (1 - p1) == 0:  # if p1 or 1-p1 is 0 -> the log breaks
+                cond_entropy = -((1 - pp) * (p2 * np.log(p2) + (1 - p2) * np.log(1 - p2)))
+            elif p2 * (1 - p2) == 0:
+                cond_entropy = -(pp * (p1 * np.log(p1) + (1 - p1) * np.log(1 - p1)))
+            else:
+                cond_entropy = - pp * (p1 * np.log(p1) + (1 - p1) * np.log(1 - p1)) \
+                               - (1 - pp) * (p2 * np.log(p2) + (1 - p2) * np.log(1 - p2))
+
+            alpha = self.counter_[rule] / self.T
+
+            heapq.heappush(self.cond_entropy_, (cond_entropy, rule))
+            heapq.heappush(self.cond_entropy_alpha_, (cond_entropy * alpha, rule))
+            self.cond_entropy_dict_[rule] = cond_entropy
+            self.cond_entropy_alpha_dict_[rule] = cond_entropy * alpha
+
     def predict_bp_old(self, X):
         h_bp = callable_rules_bp(self.rule_sets_)
         values = [h_bp(x) for x in X]
@@ -491,3 +668,15 @@ class BayesPointClassifier(ClassifierMixin, BaseEstimator):
                 if len(rule_set) > self.max_rules:
                     # possibly, add different pruning strategies
                     self.rule_sets_[i] = rule_set[:self.max_rules]
+
+    def get_bin_size_frequency(self):
+        assert len(self.bins_) == self.T
+
+        bin_sizes = [[len(b) for b in B] for B in self.bins_]
+        # join all sublists
+        bin_sizes = [item for sublist in bin_sizes for item in sublist]
+        # calculate frequency
+        bin_sizes = Counter(bin_sizes)
+        # convert to dict
+        bin_sizes = dict(bin_sizes)
+        return bin_sizes

@@ -1,4 +1,5 @@
 # outputs: a dataframe that contains each model computed and various metrics of interest.
+import json
 import math
 import os
 import pickle
@@ -9,7 +10,9 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score, accuracy_score
 from sklearn.model_selection import train_test_split, GridSearchCV, KFold
+from sklearn.preprocessing import LabelEncoder
 from sklearn.svm import SVC, LinearSVC
+from scipy import stats
 
 from bpllib import get_dataset, utils
 from bpllib._brs_bp import BayesianRuleSetClassifier
@@ -22,16 +25,12 @@ from bpllib.utils import remove_inconsistent_data
 
 if __name__ == '__main__':
 
-    output_file = 'find-rs-cv6.pkl'
+    output_file = 'fixed-ohe-find-rs.pkl'  # find-rs-perm-cv5.pkl'
 
     # check if file exists
     if os.path.exists(output_file):
         with open(output_file, 'rb') as f:
             df = pickle.load(f)
-
-        # remove all occurrences of the method svm (i need to redo it)
-        # df = df[df['method'] != 'SVM']
-        # df = df[~df['dataset'].isin(['CONNECT-4', 'ADULT', 'MARKET'])]
 
     else:
         df = pd.DataFrame()
@@ -83,12 +82,21 @@ if __name__ == '__main__':
         return accuracy_score(y_test, y_pred), f1, avg_rule_len, avg_ruleset_len
 
 
+    uninterpretable_methods = ['SVM', 'RF', 'TabNet']
+
     easy_config = {
         'Find-RS': {
             'T': 100,
+            'max_rules': 100,
+            'generalization_probability': 0.9,
+            'rule_pruning': True,
+            # 'tol': 0,
         },
         'FindRSGridSearch': {
             'T': 100,
+            'rule_pruning': True,
+            'max_rules': 100,
+            'bin_purity': 1.0,
         },
         'RIPPER': {
             'T': 100
@@ -104,12 +112,19 @@ if __name__ == '__main__':
             'T': 100,
             'num_iterations': 100,
             'maxlen': 3
+        },
+        'TabNet': {
+            'verbose': 1,
         }
     }
 
     medium_config = {
         'Find-RS': {
-            'T': 100
+            'T': 100,
+            'max_rules': 1000,
+            'generalization_probability': 0.9,
+            'rule_pruning': True,
+            'verbose': 0
         },
         'RIPPER': {
             'T': 100
@@ -125,12 +140,19 @@ if __name__ == '__main__':
             'T': 20,
             'num_iterations': 50,
             'maxlen': 3
+        },
+        'TabNet': {
+            'verbose': 1,
         }
     }
 
     hard_config = {
         'Find-RS': {
-            'T': 20
+            'T': 20,
+            'max_rules': 10000,
+            'generalization_probability': 0.9,
+            'rule_pruning': True,
+            'verbose': 6
         },
         'RIPPER': {
             'T': 20
@@ -146,12 +168,19 @@ if __name__ == '__main__':
             'T': 20,
             'num_iterations': 50,
             'maxlen': 3
+        },
+        'TabNet': {
+            'verbose': 1,
         }
     }
 
     debug_config = {
         'Find-RS': {
-            'T': 3
+            'T': 3,
+            'max_rules': 10000,
+            'generalization_probability': 0.9,
+            'rule_pruning': True,
+            'verbose': 6
         },
         'RIPPER': {
             'T': 3
@@ -167,11 +196,14 @@ if __name__ == '__main__':
             'T': 3,
             'num_iterations': 100,
             'maxlen': 3
+        },
+        'TabNet': {
+            'verbose': 1
         }
     }
 
     DEBUG = False
-    POOL_SIZE = 5 if not DEBUG else 1
+    POOL_SIZE = 5  # if not DEBUG else 1
 
     easy_datasets = utils.easy_datasets
     medium_datasets = utils.medium_datasets
@@ -195,9 +227,12 @@ if __name__ == '__main__':
     }
 
     param_grid_find_rs = {
-        'tol': [0, 1, 2],
+        # 'tol': [0, 1, 2],
         # 'n_bins': [3, 10, 30, 100],
-        'max_rules': [5, 10, 20, 40, 80],
+        # 'bin_purity': [0.9, 0.95, 1],
+        # 'max_rules': [20, 40, 80, None],
+        'generalization_probability': [0.0, 0.25, 0.5, 0.75, 0.9, 1],
+        # 'permute_constraints': [True, False]
         # 'random_state': [42],
     }
 
@@ -229,14 +264,22 @@ if __name__ == '__main__':
             estimator=FindRsClassifier(**kwargs),
             param_grid=param_grid_find_rs, cv=cv, n_jobs=1, error_score='raise',
             verbose=10,
-            refit=True)
+            refit=True, scoring='f1'
+        )
         return grid_search_find_rs
+
+
+    def TabNet(**kwargs):
+        from pytorch_tabnet.tab_model import TabNetClassifier as TNC
+
+        return TNC(**kwargs)
 
 
     methods = [  # SVM,
         # RF,
-        FindRSGridSearch,
-        # FindRsClassifier,
+        # FindRSGridSearch,
+        FindRsClassifier,
+        # TabNet
         # RipperClassifier,
         # BayesianRuleSetClassifier,
         # Id3Classifier,
@@ -244,8 +287,8 @@ if __name__ == '__main__':
     ]
 
     # 1. run baselines
-    for SEED in range(10):
-        for DATASET in easy_datasets:  # + medium_datasets:
+    for SEED in range(3):
+        for DATASET in ['MARKET']:  # + hard_datasets:  # , 'CONNECT-4']:
             if DEBUG:
                 config = debug_config
             elif DATASET in easy_datasets:
@@ -273,9 +316,20 @@ if __name__ == '__main__':
                     cfg = config.get(descr, dict())
                     T = cfg.get('T', 1)
 
-                    for encoding in ['av', 'ohe']:
+                    for encoding in ['ohe']:  # ['av', 'ohe']:
                         if encoding == 'av' and METHOD in [BayesianRuleSetClassifier]:
                             continue
+                        if encoding == 'ohe' and METHOD in [TabNet]:
+                            continue
+                        if encoding == 'ohe' and DATASET == 'CONNECT-4' and METHOD in [FindRsClassifier]:
+                            continue
+                        if encoding == 'av' and DATASET == 'ADULT' and METHOD in [FindRsClassifier]:
+                            continue
+                        if encoding == 'av' and DATASET == 'MARKET' and METHOD in [FindRsClassifier]:
+                            continue
+                        if encoding == 'ohe' and DATASET == 'MUSH' and METHOD in [FindRsClassifier]:
+                            continue
+
                         # check if this experiment has already been run
                         if len(df[(df['dataset'] == DATASET) & (df['dataset_size'] == DATASET_SIZE) & (
                                 df['seed'] == SEED) & (df['method'] == descr) & (df['encoding'] == encoding)]) > 0:
@@ -288,8 +342,18 @@ if __name__ == '__main__':
                             f'size {DATASET_SIZE} and seed {SEED} (enc={encoding})...')
 
                         # run the experiment
-                        model = METHOD(**cfg, encoding=encoding, pool_size=POOL_SIZE, random_state=SEED, verbose=0,
-                                       find_best_k=False if DATASET in hard_datasets else True)
+                        if METHOD != TabNet:
+                            model = METHOD(**cfg, encoding=encoding, pool_size=POOL_SIZE, random_state=SEED,
+                                           bp_verbose=1,
+                                           find_best_k=False if DATASET in hard_datasets else True)
+                        else:
+                            cat_idxs = list(range(X_discr.shape[1]))
+
+                            # encode X_discr using a categorical encoder
+                            X_discr = np.array([LabelEncoder().fit_transform(X_discr.values[:, i]) for i in cat_idxs]).T
+
+                            cat_dims = [len(np.unique(X_discr[:, i])) for i in cat_idxs]
+                            model = METHOD(**cfg, seed=SEED, cat_idxs=cat_idxs, cat_dims=cat_dims)
                         # if method is svm or rf, use float data
                         if descr in ['SVM', 'RF']:
                             X = X_cont
@@ -311,12 +375,46 @@ if __name__ == '__main__':
                         #     X_train = X_train[:10000]
                         #     y_train = y_train[:10000]
 
-                        # try:
-                        # input("run? ")
-                        model.fit(X_train, y_train)
+                        if METHOD != TabNet:
+                            model.fit(X_train, y_train)
+                        else:
+                            if config == easy_config:
+                                batch_size = 64
+                                max_epochs = 500
+                            elif config == medium_config:
+                                batch_size = 256
+                                max_epochs = 250
+                            elif config == hard_config:
+                                batch_size = 1024
+                                max_epochs = 100
+                            else:
+                                raise ValueError('Config not found.')
+                            model.fit(X_train, y_train, batch_size=batch_size, max_epochs=max_epochs)
 
-                        print(model.best_params_)
-                        # except Exception as e:
+                        avg_performance = None
+
+                        if isinstance(model, GridSearchCV):
+                            print(model.best_params_)
+
+                            # Extract the hyperparameter values and corresponding scores
+                            hyperparams = model.cv_results_['params']
+                            scores = model.cv_results_['mean_test_score']
+
+                            # Calculate the average performance for each hyperparameter value
+                            avg_performance = {}
+                            for param in param_grid_find_rs:
+                                avg_performance[param] = {}
+                                unique_values = np.unique([params[param] for params in hyperparams])
+                                for value in unique_values:
+                                    mask = np.array([params[param] == value for params in hyperparams])
+                                    avg_performance[param][value] = np.mean(scores[mask])
+
+                            # Print the average performance for each hyperparameter value
+                            for param in avg_performance:
+                                print(f"Average performance for {param}:")
+                                for value in avg_performance[param]:
+                                    print(f"{value}: {avg_performance[param][value]}")
+                                print()
 
                         strategies = ['single', 'bo', 'bp', 'best-k'] if DATASET not in hard_datasets else ['single',
                                                                                                             'bo',
@@ -324,6 +422,9 @@ if __name__ == '__main__':
                         for strategy in strategies:
                             # compute metrics
                             accuracy, f1, avg_rule_len, avg_ruleset_len = compute_stats(model, X_test, y_test, strategy)
+
+                            inner_model = model if not isinstance(model, GridSearchCV) else model.best_estimator_
+                            find_rs_model = inner_model if isinstance(inner_model, FindRsClassifier) else None
 
                             new_row = {
                                 'strategy': strategy,
@@ -337,7 +438,10 @@ if __name__ == '__main__':
                                 'accuracy': accuracy,
                                 'f1': f1,
                                 'avg_rule_len': avg_rule_len,
-                                'avg_ruleset_len': avg_ruleset_len
+                                'avg_ruleset_len': avg_ruleset_len,
+                                'avg_performance': json.dumps(avg_performance) if avg_performance is not None else None,
+                                'bin_size_frequency': json.dumps(
+                                    find_rs_model.get_bin_size_frequency()) if find_rs_model is not None else None
                             }
 
                             if f1 <= 0:
@@ -348,7 +452,7 @@ if __name__ == '__main__':
                             df = pd.concat([df, pd.DataFrame(new_row, index=[0])], ignore_index=True)
 
                             # lazy patch (there are no strategies for svm and rf)
-                            if descr in ['SVM', 'RF']:
+                            if descr in uninterpretable_methods:
                                 break
 
                         # Save dataframe to temporary file

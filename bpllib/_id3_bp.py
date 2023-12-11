@@ -9,8 +9,17 @@ class Id3Classifier(BayesPointClassifier):
     '''
     description = 'ID3'
 
-    def __init__(self, verbose=0, threshold_acc=0.99, **kwargs):
-        super().__init__(verbose=verbose, threshold_acc=threshold_acc, **kwargs)
+    def __init__(self, verbose=0, threshold_acc=0.99,
+                 T=3, target_class=None, pool_size='auto', find_best_k=True,
+                 random_state=None, encoding='av', to_string=True,
+                 max_rules=None, bp_verbose=0,
+                 ):
+        super().__init__(verbose=verbose, threshold_acc=threshold_acc, T=T,
+                         target_class=target_class, pool_size=pool_size,
+                         find_best_k=find_best_k, random_state=random_state,
+                         encoding=encoding, to_string=to_string,
+                         max_rules=max_rules, bp_verbose=bp_verbose
+                         )
         self.use_bootstrap = True
 
     def base_method(self, X, y, target_class, **kwargs):

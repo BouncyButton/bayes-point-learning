@@ -6,7 +6,7 @@ from itertools import combinations
 import numpy as np
 from sklearn.model_selection import GridSearchCV
 
-filename = '../find-rs-cv4.pkl'
+filename = '../new-results.pkl'
 
 # read from the pickle file
 with open(filename, 'rb') as f:

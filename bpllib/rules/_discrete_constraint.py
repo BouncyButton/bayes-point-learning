@@ -12,7 +12,14 @@ class DiscreteConstraint(Constraint):
         super().__init__(index=index)
 
     def __eq__(self, other):
+        if not isinstance(other, DiscreteConstraint):
+            return False
         return super().__eq__(other) and self.value == other.value
+
+    def __lt__(self, other):
+        if not isinstance(other, DiscreteConstraint):
+            return False
+        return super().__lt__(other) and self.value < other.value
 
     def __hash__(self):
         return hash((self.index, self.value))

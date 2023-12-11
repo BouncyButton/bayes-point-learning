@@ -15,6 +15,7 @@ from tqdm import tqdm
 
 from bpllib import get_dataset
 from bpllib._bpl import DiscreteConstraint, Rule
+from experiments.new import exp_utils
 
 
 def remove_inconsistent_data(X, y):
@@ -95,44 +96,48 @@ ground_truths = [
     # (a6=1) : idx=15
 
     [
-        Rule({0: DiscreteConstraint('1.0', 0), 3: DiscreteConstraint('1.0', 3), 6: DiscreteConstraint('0.0', 6),
-              8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('0.0', 11), 15: DiscreteConstraint('0.0', 15)}),
+        Rule({0: DiscreteConstraint('1.0', 0), 3: DiscreteConstraint('1.0', 3), 7: DiscreteConstraint('1.0', 7),
+              8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('0.0', 11), 16: DiscreteConstraint('1.0', 16)}),
         Rule({0: DiscreteConstraint('1.0', 0), 3: DiscreteConstraint('0.0', 3), 6: DiscreteConstraint('1.0', 6),
-              8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('0.0', 11), 15: DiscreteConstraint('0.0', 15)}),
-        Rule({0: DiscreteConstraint('1.0', 0), 3: DiscreteConstraint('0.0', 3), 6: DiscreteConstraint('0.0', 6),
-              8: DiscreteConstraint('1.0', 8), 11: DiscreteConstraint('0.0', 11), 15: DiscreteConstraint('0.0', 15)}),
-        Rule({0: DiscreteConstraint('1.0', 0), 3: DiscreteConstraint('0.0', 3), 6: DiscreteConstraint('0.0', 6),
-              8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('1.0', 11), 15: DiscreteConstraint('0.0', 15)}),
-        Rule({0: DiscreteConstraint('1.0', 0), 3: DiscreteConstraint('0.0', 3), 6: DiscreteConstraint('0.0', 6),
+              8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('0.0', 11), 16: DiscreteConstraint('1.0', 16)}),
+        Rule({0: DiscreteConstraint('1.0', 0), 3: DiscreteConstraint('0.0', 3), 7: DiscreteConstraint('1.0', 7),
+              8: DiscreteConstraint('1.0', 8), 11: DiscreteConstraint('0.0', 11), 16: DiscreteConstraint('1.0', 16)}),
+        Rule({0: DiscreteConstraint('1.0', 0), 3: DiscreteConstraint('0.0', 3), 7: DiscreteConstraint('1.0', 7),
+              8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('1.0', 11), 16: DiscreteConstraint('1.0', 16)}),
+        Rule({0: DiscreteConstraint('1.0', 0), 3: DiscreteConstraint('0.0', 3), 7: DiscreteConstraint('1.0', 7),
               8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('0.0', 11), 15: DiscreteConstraint('1.0', 15)}),
         Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('1.0', 3), 6: DiscreteConstraint('1.0', 6),
-              8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('0.0', 11), 15: DiscreteConstraint('0.0', 15)}),
-        Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('1.0', 3), 6: DiscreteConstraint('0.0', 6),
-              8: DiscreteConstraint('1.0', 8), 11: DiscreteConstraint('0.0', 11), 15: DiscreteConstraint('0.0', 15)}),
-        Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('1.0', 3), 6: DiscreteConstraint('0.0', 6),
-              8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('1.0', 11), 15: DiscreteConstraint('0.0', 15)}),
-        Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('1.0', 3), 6: DiscreteConstraint('0.0', 6),
+              8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('0.0', 11), 16: DiscreteConstraint('1.0', 16)}),
+        Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('1.0', 3), 7: DiscreteConstraint('1.0', 7),
+              8: DiscreteConstraint('1.0', 8), 11: DiscreteConstraint('0.0', 11), 16: DiscreteConstraint('1.0', 16)}),
+        Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('1.0', 3), 7: DiscreteConstraint('1.0', 7),
+              8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('1.0', 11), 16: DiscreteConstraint('1.0', 16)}),
+        Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('1.0', 3), 7: DiscreteConstraint('1.0', 7),
               8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('0.0', 11), 15: DiscreteConstraint('1.0', 15)}),
         Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('0.0', 3), 6: DiscreteConstraint('1.0', 6),
-              8: DiscreteConstraint('1.0', 8), 11: DiscreteConstraint('0.0', 11), 15: DiscreteConstraint('0.0', 15)}),
+              8: DiscreteConstraint('1.0', 8), 11: DiscreteConstraint('0.0', 11), 16: DiscreteConstraint('1.0', 16)}),
         Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('0.0', 3), 6: DiscreteConstraint('1.0', 6),
-              8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('1.0', 11), 15: DiscreteConstraint('0.0', 15)}),
+              8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('1.0', 11), 16: DiscreteConstraint('1.0', 16)}),
         Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('0.0', 3), 6: DiscreteConstraint('1.0', 6),
               8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('0.0', 11), 15: DiscreteConstraint('1.0', 15)}),
-        Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('0.0', 3), 6: DiscreteConstraint('0.0', 6),
-              8: DiscreteConstraint('1.0', 8), 11: DiscreteConstraint('1.0', 11), 15: DiscreteConstraint('0.0', 15)}),
-        Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('0.0', 3), 6: DiscreteConstraint('0.0', 6),
+        Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('0.0', 3), 7: DiscreteConstraint('1.0', 7),
+              8: DiscreteConstraint('1.0', 8), 11: DiscreteConstraint('1.0', 11), 16: DiscreteConstraint('1.0', 16)}),
+        Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('0.0', 3), 7: DiscreteConstraint('1.0', 7),
               8: DiscreteConstraint('1.0', 8), 11: DiscreteConstraint('0.0', 11), 15: DiscreteConstraint('1.0', 15)}),
-        Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('0.0', 3), 6: DiscreteConstraint('0.0', 6),
+        Rule({0: DiscreteConstraint('0.0', 0), 3: DiscreteConstraint('0.0', 3), 7: DiscreteConstraint('1.0', 7),
               8: DiscreteConstraint('0.0', 8), 11: DiscreteConstraint('1.0', 11), 15: DiscreteConstraint('1.0', 15)}),
     ],
     # since dataset is
-    #    2. a1:    1, 2, 3
-    # 3. a2:    1, 2, 3
-    # 4. a3:    1, 2
-    # 5. a4:    1, 2, 3
-    # 6. a5:    1, 2, 3, 4
-    # 7. a6:    1, 2
+    #    2. a1:    1, 2, 3  -> x0, x1, x2
+    # 3. a2:    1, 2, 3     -> x3, x4, x5
+    # 4. a3:    1, 2        -> x6, x7    => i'll transform x6=0 to x7=1
+    # 5. a4:    1, 2, 3     -> x8, x9, x10
+    # 6. a5:    1, 2, 3, 4  -> x11, x12, x13, x14
+    # 7. a6:    1, 2        -> x15, x16  => i'll transform x15=0 to x16=1
+
+    # we should think of a better way to do this. but more or less, the results are correct. find-rs especially is exact.
+
+    # Rule(8: dc(1, 8), 9: dc(0,9), 10: dc(0,10))
 
     # (a5 = 3 and a4 = 1) or (a5 /= 4 and a2 /= 3)
 
@@ -144,26 +149,32 @@ ground_truths = [
     ]
 ]
 
-print("""
-\\begin{table}[ht]
-\\centering
-\\small
+# print("""
+# \\begin{table}[ht]
+# \\centering
+# \\small
 
+print("""
 \\begin{tabular}{ l l | c c c c  }
-\\hline
-dataset & size & find-rs & ripper & id3 & aq \\\\ 
+\\toprule
+dataset & size & \\textbf{\\method{}} & \\textbf{RIPPER} & \\textbf{ID3} & \\textbf{AQ} \\\\ 
  \\hline
 """)
 
 filename = f'../forsimilarityy.pkl'  # max(glob.iglob('results_*.pkl'), key=os.path.getctime)
 
 # read from the pickle file
-with open(filename, 'rb') as f:
-    df = pickle.load(f)
+# with open(filename, 'rb') as f:
+#     df = pickle.load(f)
+
+df = exp_utils.get_df(datasets=test_datasets)
 
 for DATASET, ground_truth in zip(test_datasets, ground_truths):
-    for DATASET_SIZE in [0.25, 0.33, 0.5]:
-        print(f'\n{DATASET} & {DATASET_SIZE} & \t', end='')
+    for DATASET_SIZE in [0.5]:  # , 0.33, 0.5, '-']:
+        if DATASET_SIZE == '-':
+            print('\\hline')
+            continue
+        print(f'\n\\texttt{{{DATASET}}} & {DATASET_SIZE} & \t', end='')
         for METHOD in ['Find-RS', 'RIPPER', 'ID3', 'AQ']:  # , 'BRS']:
             # [0.5, 0.33, 0.25]:
             encoding = 'ohe' if METHOD == 'BRS' or DATASET in ['MONKS2', 'MONKS3'] else 'av'
@@ -177,6 +188,10 @@ for DATASET, ground_truth in zip(test_datasets, ground_truths):
             model = row['model']
             seed = row['seed']
 
+            # split train test
+            X, y = get_dataset(DATASET)
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=seed)
+
 
             def similarity(rs1, rs2):
                 return len(set(rs1).intersection(set(rs2))) / len(set(rs1).union(set(rs2)))
@@ -187,11 +202,13 @@ for DATASET, ground_truth in zip(test_datasets, ground_truths):
                 print('- \t', end=' & \t' if METHOD != 'AQ' else ' \\\\\n')
                 continue
             similarities = [similarity(ground_truth, ruleset) for ruleset in model.rule_sets_]
-            print(f'{np.mean(similarities):.4f}', end=' & \t' if METHOD != 'AQ' else ' \\\\\n')
+            print(f'{np.mean(similarities):.3f}', end=' & \t' if METHOD != 'AQ' else ' \\\\\n')
 print("""
-\\hline
+\\bottomrule
 \\end{tabular}
-\\caption{Average similarity of the rulesets found by the BP methods to the ground truth rulesets.}
-\\label{tab:bp-similarity}
-\\end{table}
 """)
+
+# \\caption{Average similarity of the rulesets found by the BP methods to the ground truth rulesets.}
+# \\label{tab:bp-similarity}
+# \\end{table}
+# """)

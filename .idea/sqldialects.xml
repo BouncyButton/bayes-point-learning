@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/experiments/best_k_plot.py" dialect="SQLite" />
+    <file url="file://$PROJECT_DIR$/experiments/new/put_df_into_h5.py" dialect="SQLite" />
+  </component>
+</project>

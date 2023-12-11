@@ -80,7 +80,18 @@ def most_frequent_tiebreaker(x, tiebreaker_value):
         raise ValueError('This should not happen')
 
 
-easy_datasets = list(sorted(['MONKS1', 'MONKS2', 'MONKS3', 'TTT', 'CAR', 'CERV', 'COMPAS', 'BREAST', 'SOYBEAN', 'HIV',
-                             'LYMPHOGRAPHY', 'PRIMARY', 'VOTE']))
+easy_datasets = list(sorted(['MONKS1', 'MONKS2', 'MONKS3', 'TTT', 'CAR', 'COMPAS', 'BREAST', 'SOYBEAN', 'HIV',
+                             'LYMPHOGRAPHY', 'PRIMARY', 'VOTE', 'SPECT', 'AUDIO']))
 medium_datasets = list(sorted(['KR-VS-KP', 'MUSH']))
 hard_datasets = list(sorted(['MARKET', 'ADULT', 'CONNECT-4']))
+
+
+def get_av_idx_and_val(enc, ohe_idx):
+    i = 0
+    av_idx = 0
+    for av_idx, cat in enumerate(enc.categories_):
+        for val in cat:
+            if i == ohe_idx:
+                return av_idx, val
+            i += 1
+    raise ValueError('ohe idx too large')
